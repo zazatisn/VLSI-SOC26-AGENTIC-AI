@@ -96,6 +96,42 @@ Closing the second shell does not affect the first. If you exit the original ses
 
 The `OPENROAD_EXE` and `YOSYS_EXE` environment variables are already set.
 
+## Choosing a model
+
+The tutorial works with both local and cloud models. All agents are built in Python with [DSPy](https://dspy.ai), which handles the model setup and lets us compose multi-agent systems. You pick the provider and model in each problem's `config.json`.
+
+### Option A: Local SLMs with Ollama
+
+Ollama is installed in the image and its server starts automatically when the container starts, so you only need to download a model. Inside the container:
+
+```bash
+ollama pull <model-name>
+```
+
+**Recommended models:**
+
+| Model | Command |
+| --- | --- |
+| `llama3.1` | `ollama pull llama3.1` |
+| `qwen2.5-coder:7b` | `ollama pull qwen2.5-coder:7b` |
+
+Then set the model in `config.json` to the one you pulled.
+
+Notes:
+
+- Local models run on your own machine, so they need no API key and no internet access after the download. Speed depends on your hardware, and a GPU helps a lot.
+- Because the container is started with `--rm`, models downloaded inside it are deleted when you exit. To keep them between sessions, mount a volume for Ollama's model folder, for example `-v ollama-models:/home/.ollama` (the image sets `HOME=/home`).
+
+### Option B: Cloud LLMs with API keys
+
+You can also use hosted models by providing an API key.
+
+**Recommended free option:** the [Google Gemini API](https://ai.google.dev/), which has a free tier suitable for this tutorial.
+
+Then set the Gemini model in `config.json`. Other providers supported by DSPy also work, using their own API key variable.
+
+> Free tiers have rate limits, so the iterative scripts may be slowed down or throttled. If that happens, wait a bit, reduce the number of runs, or switch to a local model.
+
 ## Repository structure
 
 ```
