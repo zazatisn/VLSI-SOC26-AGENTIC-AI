@@ -1,0 +1,50 @@
+[
+  {
+    "sentence": "Fantastic, another unannounced breaking API change right before the weekend.",
+    "sentiment": "Negative"
+  },
+  {
+    "sentence": "I can't say I'm unhappy with how fast customer support resolved the issue.",
+    "sentiment": "Positive"
+  },
+  {
+    "sentence": "After applying the new patch, my phone turns into a hand warmer within five minutes.",
+    "sentiment": "Negative"
+  },
+  {
+    "sentence": "The initial setup was a nightmare, but now I can't imagine managing projects without it.",
+    "sentiment": "Positive"
+  },
+  {
+    "sentence": "Customer support responded in record time—it only took them six business days.",
+    "sentiment": "Negative"
+  },
+  {
+    "sentence": "I'd highly recommend this software if you enjoy spending your entire afternoon troubleshooting.",
+    "sentiment": "Negative"
+  },
+  {
+    "sentence": "It isn't the worst tool on the market, but it certainly isn't worth $50 a month.",
+    "sentiment": "Negative"
+  },
+  {
+    "sentence": "The UI looks drop-dead gorgeous, though it completely freezes whenever you hit export.",
+    "sentiment": "Negative"
+  },
+  {
+    "sentence": "It does what it says on the box, nothing more and nothing less.",
+    "sentiment": "Neutral"
+  },
+  {
+    "sentence": "I hated the forced redesign at first, but after a week of daily use, it completely grew on me.",
+    "sentiment": "Positive"
+  },
+  {
+    "sentence": "For a free open-source utility built by one developer, it gets the job done surprisingly well.",
+    "sentiment": "Positive"
+  },
+  {
+    "sentence": "The application now defaults to light mode and removed the legacy export formats.",
+    "sentiment": "Neutral"
+  }
+]

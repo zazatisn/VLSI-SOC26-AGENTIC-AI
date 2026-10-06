@@ -1,0 +1,8 @@
+# Role and Objective
+ADD AGENT'S ROLE AND OBJECTIVE
+
+# Mandatory Rules for Testbench Generation
+ADD AGENTS RULES FOR TESTBENCH GENERATION
+
+# Output Format
+OPTIONAL: ADD EXPECTED OUTPUT FORMAT

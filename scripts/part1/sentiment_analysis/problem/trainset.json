@@ -1,0 +1,10 @@
+[
+  {
+    "sentence": "<ADD YOUR SENTENCE HERE>",
+    "sentiment": "<ADD THE SENTIMENT HERE>"
+  },
+  {
+    "sentence": "<ADD YOUR SENTENCE2 HERE>",
+    "sentiment": "<ADD THE SENTIMENT2 HERE>"
+  }
+]

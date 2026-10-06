@@ -1,0 +1,26 @@
+[
+  {
+    "sentence": "Great, another unannounced breaking update right before the weekend.",
+    "sentiment": "Negative"
+  },
+  {
+    "sentence": "I can't say I'm displeased with how smoothly the migration went.",
+    "sentiment": "Positive"
+  },
+  {
+    "sentence": "The setup was an absolute nightmare, but it works like a charm now.",
+    "sentiment": "Positive"
+  },
+  {
+    "sentence": "I'd highly recommend this app if you enjoy waiting five minutes for a page to load.",
+    "sentiment": "Negative"
+  },
+  {
+    "sentence": "Ever since the patch, my laptop fan sounds like a jet engine taking off.",
+    "sentiment": "Negative"
+  },
+  {
+    "sentence": "The app requires 4GB of RAM and Python 3.10 to operate.",
+    "sentiment": "Neutral"
+  }
+]
