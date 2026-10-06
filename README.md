@@ -36,6 +36,14 @@ Hands-on material for the VLSI-SoC 2026 tutorial on **agentic AI for Electronic 
 
 From the root of this repository (where the `Dockerfile` is):
 
+**Windows (PowerShell):**
+
+```bash
+docker build --platform linux/amd64 -t vlsi-soc26-ai .
+```
+
+**Linux / macOS:**
+
 ```bash
 docker build -t vlsi-soc26-ai .
 ```
