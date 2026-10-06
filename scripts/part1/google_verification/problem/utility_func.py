@@ -37,8 +37,8 @@ def compute_throughput(tokens: int, duration_sec: float) -> tuple[float, float]:
 
 
 # --- 2. AGENT RULES & FILE HELPERS ---
-def load_agent_instructions(agent_filepath: str = "AGENT.md") -> str:
-    """Loads agent rules and objectives directly from AGENT.md."""
+def load_agent_instructions(agent_filepath: str = "Agent.md") -> str:
+    """Loads agent rules and objectives directly from Agent.md."""
     if not os.path.exists(agent_filepath):
         print(f"Warning: '{agent_filepath}' not found. Falling back to default rules.")
         return "Write standard Verilog-2001 self-checking testbench to isolate 1 correct RTL design."

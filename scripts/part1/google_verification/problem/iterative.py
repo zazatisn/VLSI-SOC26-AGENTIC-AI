@@ -20,7 +20,7 @@ dspy.configure(lm=lm)
 
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 MUTANT_DIR = os.path.join(ROOT_DIR, DESIGN_SUBFOLDER)
-agent_rules = load_agent_instructions(os.path.join(ROOT_DIR, "AGENT.md"))
+agent_rules = load_agent_instructions(os.path.join(ROOT_DIR, "Agent.md"))
 
 
 # --- 2. DSPY SIGNATURE ---

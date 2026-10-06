@@ -12,8 +12,8 @@ dspy.configure(lm=lm)
 
 
 # 2. Helper Functions to Load External Agent Data & Datasets
-def load_agent_instructions(agent_filepath="AGENT.md"):
-    """Extracts instructions and data source references from AGENT.md."""
+def load_agent_instructions(agent_filepath="Agent.md"):
+    """Extracts instructions and data source references from Agent.md."""
     with open(agent_filepath, "r", encoding="utf-8") as f:
         content = f.read()
 
@@ -73,7 +73,7 @@ def compute_throughput(tokens, duration_sec):
 
 
 # 4. Dynamic Signature Creation
-instructions, dataset_path = load_agent_instructions("AGENT.md")
+instructions, dataset_path = load_agent_instructions("Agent.md")
 trainset = load_dataset(dataset_path)
 
 class DynamicSentimentAnalysis(dspy.Signature):
