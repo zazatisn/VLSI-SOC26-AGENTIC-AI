@@ -13,6 +13,7 @@ Hands-on material for the VLSI-SoC 2026 tutorial on **agentic AI for Electronic 
   - [1. Build the Docker image](#1-build-the-docker-image)
   - [2. Run the container](#2-run-the-container)
   - [3. Open a second terminal](#3-open-a-second-terminal-optional)
+  - [Alternative: local install (no Docker)](#alternative-local-install-no-docker)
 - [What is in the image](#what-is-in-the-image)
 - [Repository structure](#repository-structure)
 - [Configuring the agent](#configuring-the-agent)
@@ -91,6 +92,56 @@ docker exec -it vlsi bash
 ```
 
 Closing the second shell does not affect the first. If you exit the original session, the container stops and all attached shells close.
+
+### Alternative: local install (no Docker)
+
+If you prefer to run the tutorial on your own machine, `install/` has scripts that install the
+same tools as the Docker image under one folder (default `~/eda`, no files in `/home`):
+
+| System | Script | Status |
+| --- | --- | --- |
+| Ubuntu 22.04 / 24.04 / 26.04 | `install/install_ubuntu.sh` | Full toolchain, all parts |
+| macOS 14+ (Homebrew) | `install/install_macos.sh` | Best effort: OpenROAD has no official macOS support |
+
+```bash
+bash install/install_ubuntu.sh            # run as your user, it asks for sudo when needed
+# options: --prefix DIR  --jobs N  --skip-openroad  --openroad-bin PATH  --skip-ollama  --no-model
+```
+
+The script installs:
+
+- **apt packages and iverilog**;
+- **Python**: a venv with `dspy`, `pyyaml` and `ollama` (this avoids the pip error of Ubuntu 24.04+);
+- **EDA tools**: Yosys and OpenROAD built from source (Bazel), the KLayout `.deb` for your Ubuntu
+  version (or the Ubuntu package), and a clone of OpenROAD-flow-scripts;
+- **Ollama** with `llama3.1`.
+
+It also writes `~/eda/vlsi_soc_env.sh` and loads it from `~/.bashrc`. That file:
+
+- sets `OPENROAD_EXE`, `YOSYS_EXE` and `ORFS_DIR`, and puts `openroad` in the `PATH`;
+- activates the venv;
+- loads `scripts/api_keys.sh`;
+- starts `ollama serve` if it is not running.
+
+`ORFS_DIR` overrides `design.orfs_dir` of the run configs, so the configs work unchanged. Plan
+for about 40 GB of disk, 16 GB of RAM (use `--jobs 2` with less) and 1 to 2 hours for the
+OpenROAD build. You can re-run the script: finished steps are skipped.
+
+Locally, replace `/home/scripts` in the commands of this README with `<repo>/scripts`:
+
+```bash
+source ~/eda/vlsi_soc_env.sh               # or open a new terminal
+cd <repo>/scripts/part2/solution
+python3 asic_autonomous_flow.py --config run_configs/2a_single_agent.yaml
+```
+
+On macOS, Homebrew provides:
+
+- the tools: Icarus Verilog, Yosys, KLayout, Ollama;
+- the GNU make, time, sed and coreutils that OpenROAD-flow-scripts needs.
+
+The script then tries the OpenROAD Bazel build. If that build fails, Part 1 and the
+testbench/RTL steps still run natively; for the full flows use the Docker image.
 
 ## What is in the image
 
@@ -177,6 +228,7 @@ variable (`api_key: "$GEMINI_API_KEY"`), and one script sets these variables for
 .
 ├── Dockerfile
 ├── README.md
+├── install/               # local install without Docker (Ubuntu, macOS)
 └── scripts/
     ├── part1/
     │   ├── sentiment_analysis/

@@ -281,8 +281,9 @@ DESIGN        = ARGS.design or cfg_get(FLOW_CONFIG, "design.design", "p1.yaml") 
 ORFS_PLATFORM = cfg_get(FLOW_CONFIG, "design.orfs_platform", "sky130hd")             # Target platform for ORFS
 PDK_RTL_PATH  = Path(cfg_get(FLOW_CONFIG, "design.pdk_rtl_path", "./PDK_files/"))    # Verilog simulation models of the platform
 
-# Path of the OpenROAD-flow-scripts directory. None: auto-detected from 'openroad' in PATH.
-ORFS_DIR = opt_path(cfg_get(FLOW_CONFIG, "design.orfs_dir"))
+# Path of the OpenROAD-flow-scripts directory. The ORFS_DIR environment variable (local installs)
+# overrides the config. None: auto-detected from 'openroad' in PATH.
+ORFS_DIR = opt_path(os.environ.get("ORFS_DIR") or cfg_get(FLOW_CONFIG, "design.orfs_dir"))
 
 # Verification mode: "RTL" (RTL simulation only) or "BOTH" (RTL + post-synthesis gate-level simulation)
 VERIFICATION_MODE = str(cfg_get(FLOW_CONFIG, "flow.verification_mode", "RTL")).upper()

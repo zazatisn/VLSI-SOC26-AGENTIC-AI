@@ -99,7 +99,7 @@ REPORT_CHARS     = int(cfg_get(CFG, "limits.report_chars", 4000))
 DESIGN        = ARGS.design or cfg_get(CFG, "design.design", "p1.yaml")
 ORFS_PLATFORM = cfg_get(CFG, "design.orfs_platform", "sky130hd")
 PDK_RTL_PATH  = Path(cfg_get(CFG, "design.pdk_rtl_path", "./PDK_files/"))
-ORFS_DIR      = cfg_get(CFG, "design.orfs_dir")
+ORFS_DIR      = os.environ.get("ORFS_DIR") or cfg_get(CFG, "design.orfs_dir")   # env var wins (local installs)
 ORFS_DIR      = Path(ORFS_DIR).expanduser() if ORFS_DIR else None
 
 VERIFICATION_MODE = str(cfg_get(CFG, "flow.verification_mode", "RTL")).upper()
