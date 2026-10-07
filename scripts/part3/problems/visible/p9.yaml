@@ -1,0 +1,69 @@
+fir_filter:
+  description: >
+    Parameterized N-tap FIR (Finite Impulse Response) filter using pipelining for improved timing. Using integer values for all.
+    Input samples are multiplied by fixed coefficients and accumulated in a pipelined fashion.
+  tech_node: SkyWater 130HD
+  clock_period: 8ns
+  parameters:
+    WIDTH: 16         # Bit width of input samples and coefficients
+    N: 8              # Number of taps (filter order)
+  ports:
+    - name: clk
+      direction: input
+      type: wire
+      description: Clock input
+    - name: rst
+      direction: input
+      type: wire
+      description: Active-high synchronous reset
+    - name: x_in
+      direction: input
+      type: signed [WIDTH-1:0]
+      description: Input sample
+    - name: h
+      direction: input
+      type: signed [N*WIDTH-1:0]
+      description: Flattened FIR filter coefficients (N elements of WIDTH bits)
+    - name: y_out
+      direction: output
+      type: reg signed [2*WIDTH+$clog2(N)-1:0]
+      description: Filtered output sample (Corrected bit growth from accumulation)
+  module_signature: |
+    module fir_filter #(
+        parameter WIDTH = 16,
+        parameter N = 8
+    ) (
+        input                        clk,
+        input                        rst,
+        input  signed [WIDTH-1:0]    x_in,
+        input  signed [N*WIDTH-1:0]  h,
+        output reg signed [2*WIDTH + $clog2(N) - 1 : 0] y_out
+    );
+  sample_usage:
+    description: >
+      8-tap FIR filter with input samples [1, 2, 3, ..., 8] (then 0) and coefficients [1, 2, ..., 8].
+      The output is compared against expected convolution results.
+      Coefficients h must be provided as a flattened bit-vector.
+  stimulus:
+    clk: "[0, 1] * 40"
+    rst: "[1] + [0] * 39"
+    x_in: "[1, 2, 3, 4, 5, 6, 7, 8] + [0] * 32"
+  expected_y_out:
+    - 1
+    - 4
+    - 10
+    - 20
+    - 35
+    - 56
+    - 84
+    - 120
+  timing: |
+    Registered output, latency 1: at the rising edge that samples x_in[n],
+    y_out becomes  sum over j = 0..N-1 of h[j] * x[n-j]   (x[m] = 0 for samples before reset).
+    h[j] = h[j*WIDTH +: WIDTH] (signed). During reset y_out and all history registers are 0.
+    "Pipelining" means a structure with one multiply and one add per register stage that keeps
+    this latency, e.g. the transposed form: z[N-1] <= h[N-1]*x_in;  z[j] <= z[j+1] + h[j]*x_in;
+    y_out <= z[1] + h[0]*x_in.
+    Race-free testbench: drive x_in on a falling edge and check y_out on the next falling edge.
+    Expected y_out for x_in = 1, 2, 3, ..., 16 and h = 1..8:
+      1, 4, 10, 20, 35, 56, 84, 120, 156, 192, 228, 264, 300, 336, 372, 408

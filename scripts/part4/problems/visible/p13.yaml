@@ -1,0 +1,46 @@
+sliding_window_avg_8bit:
+  description: >
+    A 4-tap sliding window averager. It maintains a history of the last four 8-bit samples
+    in a pipeline, calculates their sum, and outputs the average (sum/4).
+  tech_node: SkyWater 130HD
+  clock_period: 2.5ns
+  ports:
+    - name: clk
+      direction: input
+      type: wire
+      description: Clock input
+    - name: reset
+      direction: input
+      type: wire
+      description: Synchronous reset (active high) - clears internal pipeline and output.
+    - name: data_in
+      direction: input
+      type: wire
+      width: "[7:0]"
+      description: New 8-bit input data sample.
+    - name: data_out
+      direction: output
+      type: reg
+      width: "[7:0]"
+      description: The calculated 8-bit average of the last 4 samples.
+  module_signature: |
+    module sliding_window_avg_8bit(
+        input clk,
+        input reset,
+        input [7:0] data_in,
+        output reg [7:0] data_out
+    );
+  logic_rules:
+    - On every posedge of clk, if reset is high, all internal registers and data_out must be 0.
+    - On every posedge of clk, if reset is low, the module must shift data_in into an internal 4-stage pipeline.
+    - The module must compute the sum of the four most recent samples using sufficient bit-width (10 bits) to prevent overflow.
+    - data_out is updated every cycle with the sum divided by 4 (achieved via a 2-bit right shift).
+  sample_input: "data_in: 8 -> 12 -> 4 -> 16"
+  sample_output: "data_out: 2 -> 5 -> 6 -> 10"
+  timing: |
+    data_out is updated at each rising edge (latency 1) and already includes the sample taken
+    at that edge: data_out = (data_in + the 3 previous samples) >> 2, i.e. the 4 most recent
+    samples including the current one. Samples before reset count as 0.
+    sample_output[i] is the value of data_out right after the rising edge that samples
+    sample_input[i]: 8 -> 2, 12 -> 5, 4 -> 6, 16 -> 10.
+    Race-free testbench: drive data_in on a falling edge, check data_out on the next falling edge.

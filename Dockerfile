@@ -23,7 +23,12 @@ RUN git clone https://github.com/YosysHQ/yosys.git && pip3 install cmake && cd y
 
 # installing KLayout binary #
 RUN wget https://www.klayout.org/downloads/Ubuntu-22/klayout_0.30.12-1_amd64.deb && \
+<<<<<<< Updated upstream
     apt install ./klayout_0.30.12-1_amd64.deb
+=======
+    ${APT_COMMAND} install ./klayout_0.30.12-1_amd64.deb && \
+    rm klayout_0.30.12-1_amd64.deb
+>>>>>>> Stashed changes
 
 # installing OpenROAD flow scripts #
 RUN git clone https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts.git
@@ -32,11 +37,19 @@ RUN git clone https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts.git
 ENV OPENROAD_EXE=/home/OpenROAD/bazel-bin/openroad
 ENV YOSYS_EXE=/usr/local/bin/yosys
 
+# make 'openroad' available in PATH (a wrapper keeps the Bazel runfiles next to the real binary) #
+RUN printf '#!/bin/sh\nexec /home/OpenROAD/bazel-bin/openroad "$@"\n' > /usr/local/bin/openroad && \
+    chmod +x /usr/local/bin/openroad && openroad -version
+
 # installing Ollama and DSPY #
 RUN ${APT_COMMAND} install zstd pciutils lshw && curl -fsSL https://ollama.com/install.sh | sh
 RUN pip3 install ollama dspy pyyaml
 
 # install iverilog #
 RUN ${APT_COMMAND} install iverilog
+
+# load the API keys (scripts/api_keys.sh, see README) in every interactive shell #
+# (carriage returns are removed first, in case the file was saved with Windows line endings) #
+RUN printf '%s\n' '[ -f /home/scripts/api_keys.sh ] && . <(tr -d "\r" < /home/scripts/api_keys.sh)' >> /etc/bash.bashrc
 
 CMD ["sh", "-c", "ollama serve > /dev/null 2>&1 & sleep 2 && bash"]

@@ -18,29 +18,29 @@ profiles:
 
   groq:
     model: "groq/allam-2-7b"
-    api_key: "YOUR_GROQ_API_KEY"
+    api_key: "$GROQ_API_KEY"
     temperature: 0.0
     cache: true
 
   gemini_lite:
     model: "gemini/gemini-3.1-flash-lite"
-    api_key: "YOUR_GEMINI_API_KEY"
+    api_key: "$GEMINI_API_KEY"
     cache: true
 
   gemini_preview:
     model: "gemini/gemini-3-flash-preview"
-    api_key: "YOUR_GEMINI_API_KEY"
+    api_key: "$GEMINI_API_KEY"
     cache: true
 
   openai:
     model: "openai/gpt-4o-mini"
-    api_key: "YOUR_OPENAI_API_KEY"
+    api_key: "$OPENAI_API_KEY"
     temperature: 0.0
     cache: true
 
   claude:
     model: "anthropic/claude-3-5-sonnet-20241022"
-    api_key: "YOUR_ANTHROPIC_API_KEY"
+    api_key: "$ANTHROPIC_API_KEY"
     temperature: 0.0
     cache: true
 

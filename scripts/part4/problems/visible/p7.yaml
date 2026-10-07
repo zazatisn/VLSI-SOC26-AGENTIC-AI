@@ -1,0 +1,67 @@
+exp_fixed_point:
+  description: >
+    A 2-stage pipelined exponential function for unsigned fixed-point inputs using a 3-term Taylor 
+    series approximation: e^x ≈ 1 + x + x^2/2 + x^3/6. Inputs are unsigned fixed-point values in 
+    UQ1.(WIDTH-1) format (e.g., WIDTH = 8 implies UQ1.7). The output is in UQ(WIDTH+1).(WIDTH-1) format (UQ9.7 for WIDTH = 8), see arithmetic.
+  tech_node: SkyWater 130HD
+  clock_period: 4.5ns
+  parameters:
+    WIDTH: 8    # Bit-width of unsigned fixed-point input (1 integer bit, WIDTH-1 fractional bits)
+  ports:
+    - name: clk
+      direction: input
+      type: wire
+      description: Clock input (rising edge)
+    - name: rst
+      direction: input
+      type: wire
+      description: Synchronous reset (active high)
+    - name: enable
+      direction: input
+      type: wire
+      description: Enable signal to process input (active high)
+    - name: x_in
+      direction: input
+      type: "[WIDTH-1:0]"
+      description: Unsigned fixed-point input value in UQ1.(WIDTH-1) format
+    - name: exp_out
+      direction: output
+      type: reg [2*WIDTH-1:0]
+      description: Unsigned exponential output in UQ(WIDTH+1).(WIDTH-1) format (UQ9.7 for WIDTH = 8)
+  module_signature: |
+    module exp_fixed_point #(
+        parameter WIDTH = 8
+    ) (
+        input                    clk,
+        input                    rst,
+        input                    enable,
+        input        [WIDTH-1:0] x_in,
+        output reg [2*WIDTH-1:0] exp_out
+    );
+  sample_usage:
+    description: >
+      Test input: x = 128 (which is 1.0 in UQ1.7). Expected output is the Taylor value 2.667 in UQ9.7 format,
+      which is represented as 341 (rounded). See timing for when it appears.
+    clk_sequence:    [1, 0, 1, 0, 1, 0, 1]
+    rst_sequence:    [1, 0, 0, 0, 0, 0, 0]
+    enable_sequence: [1, 1, 1, 1, 1, 1, 1]
+    x_in_sequence:   [0, 128, 128, 128, 128, 128, 128]  # 1.0 in UQ1.7 format
+    expected_exp_out:
+      - null
+      - null
+      - null
+      - 341   # ≈ e^1 in UQ9.7
+  timing: |
+    Two register stages. When enable = 1 at rising edge k, x_in is sampled (stage 1);
+    exp_out shows the result after rising edge k+1 (stage 2). When enable = 0 the registers
+    keep their values. During reset exp_out is 0.
+    Race-free testbench: drive x_in and enable on a falling edge, keep them for the following
+    cycles, and check exp_out two falling edges later.
+  arithmetic: |
+    x = x_in / 2^(WIDTH-1)                       (UQ1.7 for WIDTH = 8, range 0 .. 1.992)
+    exp_out = round( 2^(WIDTH-1) * (1 + x + x^2/2 + x^3/6) )   -> UQ9.7 for WIDTH = 8
+    This is the 3-term TAYLOR value, NOT the exact e^x (they differ a lot for large x:
+    x_in = 255 -> Taylor 806, exact e^x 938).
+    Reference values (WIDTH = 8): x_in=0 -> 128, x_in=64 -> 211, x_in=128 -> 341, x_in=255 -> 806.
+    Fixed-point truncation is allowed: a correct design is within +/-8 of these values,
+    so a testbench must accept |exp_out - expected| <= 8.

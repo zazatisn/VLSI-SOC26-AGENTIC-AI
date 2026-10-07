@@ -1,0 +1,65 @@
+# Model profiles of the WORKERS (the small models that execute the subtasks)
+# Select which profile to use: ollama | groq | gemini_lite | gemini_preview | openai | claude | <other_api_model>
+active_profile: "claude-haiku-4-5"
+
+profiles:
+  ollama-llama3.1:
+    model: "ollama_chat/llama3.1"
+    api_base: "http://localhost:11434"
+    api_key: ""
+    temperature: 0.0
+    cache: true # true stores the prompts - answers to save computation and tokens #
+
+  ollama-qwen2.5-coder:
+    model: "ollama_chat/qwen2.5-coder:7b"
+    api_base: "http://localhost:11434"
+    api_key: ""
+    temperature: 0.0
+    cache: false
+
+  groq:
+    model: "groq/allam-2-7b"
+    api_key: "$GROQ_API_KEY"
+    temperature: 0.0
+    cache: true
+
+  gemini_lite:
+    model: "gemini/gemini-3.1-flash-lite"
+    max_tokens: 8000       # long answers (full RTL / testbench)
+    api_key: "$GEMINI_API_KEY"
+    cache: true
+
+  gemini_preview:
+    model: "gemini/gemini-3-flash-preview"
+    max_tokens: 8000       # long answers (full RTL / testbench)
+    api_key: "$GEMINI_API_KEY"
+    cache: true
+
+  openai:
+    model: "openai/gpt-4o-mini"
+    api_key: "$OPENAI_API_KEY"
+    temperature: 0.0
+    cache: true
+
+  claude-haiku-4-5:
+    model: "anthropic/claude-haiku-4-5-20251001"
+    max_tokens: 8000       # long answers (full RTL / testbench)
+    api_key: "$ANTHROPIC_API_KEY"
+    temperature: 0.0
+    cache: true
+
+  claude-sonnet-5-5:
+    model: "anthropic/claude-sonnet-5-5"
+    max_tokens: 8000       # long answers (full RTL / testbench)
+    api_key: "$ANTHROPIC_API_KEY"
+    temperature: 1
+    cache: true
+  
+  claude-opus-5-5:
+    model: "anthropic/claude-opus-5-5"
+    max_tokens: 8000       # long answers (full RTL / testbench)
+    api_key: "$ANTHROPIC_API_KEY"
+    temperature: 1
+    cache: true
+
+  # add any other model and API you want! #

@@ -1,0 +1,16 @@
+
+# Personal API keys (never commit)
+scripts/api_keys.sh
+
+# Python caches
+__pycache__/
+*.pyc
+
+# Run outputs of the flows (Parts 2-4) and Part 1 simulation output
+scripts/part*/*/runs/
+scripts/part1/**/sim_out
+*.log
+
+# Local development archive and reference repositories
+scripts/part2/_dev_archive/
+tests/

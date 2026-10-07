@@ -1,0 +1,45 @@
+fp16_multiplier:
+  description: >
+    16-bit floating-point multiplier (IEEE 754 half-precision compatible) with support for zero detection
+    and rounding to nearest even. Takes two 16-bit FP16 inputs and computes the product in a single cycle.
+    Ignore subnormal/denormal inputs or outputs.
+  tech_node: SkyWater 130HD
+  clock_period: 9ns
+  parameters: {}
+  ports:
+    - name: a
+      direction: input
+      type: "[15:0]"
+      description: FP16 input operand A
+    - name: b
+      direction: input
+      type: "[15:0]"
+      description: FP16 input operand B
+    - name: result
+      direction: output
+      type: reg [15:0]
+      description: FP16 product result of A * B
+  module_signature: |
+    module fp16_multiplier(
+        input      [15:0] a,
+        input      [15:0] b,
+        output reg [15:0] result
+    );
+  sample_usage:
+    description: >
+      Example use case multiplying 1.0 * 2.0, expecting 2.0 in FP16 encoding.
+    a: 16'b0_01111_0000000000  # 1.0
+    b: 16'b0_10000_0000000000  # 2.0
+    result: 16'b0_10000_0000000000  # 2.0
+  timing: |
+    Purely combinational (no clock, no reset). A testbench applies a and b, waits 1 ns
+    (#1) and checks result. Use the combinational SDC template.
+  arithmetic: |
+    sign = a[15] ^ b[15]. If a or b is zero (exponent field 0), result = signed zero
+    {sign, 15'b0}. Otherwise multiply the 11-bit significands {1, mantissa}, add the exponents
+    and subtract the bias 15, normalize, and round the mantissa to nearest, ties to even.
+    Exponent overflow (>= 31) -> infinity {sign, 5'b11111, 10'b0}; underflow (< 1) -> {sign, 15'b0}.
+    Reference cases (from the official testbench):
+      1.0 (0_01111_0000000000) *  2.0 (0_10000_0000000000) =   2.0 (0_10000_0000000000)
+      0.0 (0_00000_0000000000) *  5.0 (0_10001_0100000000) =   0.0 (0_00000_0000000000)
+     -3.0 (1_10000_1000000000) *  4.0 (0_10001_0000000000) = -12.0 (1_10010_1000000000)

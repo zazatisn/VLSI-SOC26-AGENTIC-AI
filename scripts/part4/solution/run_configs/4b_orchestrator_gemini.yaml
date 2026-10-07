@@ -1,0 +1,53 @@
+###############################################################################
+# PART 4b - Orchestrator Gemini Flash (preview, big), workers Gemini Flash Lite (small)
+#
+# A BIG orchestrator model plans the work and writes the Agent.md of every
+# subtask; SMALL worker models execute the subtasks. The EDA tools check every
+# deliverable: the RTL must pass the testbench and synthesize, the SDC must
+# follow its template, and the OpenROAD flow must finish and be scored.
+#
+# Run (from the problem/ or solution/ folder):
+#   python3 asic_orchestrated_flow.py --config run_configs/4b_orchestrator_gemini.yaml
+#
+# Needs GEMINI_API_KEY. The preview model is sometimes overloaded (error 503): the flow
+# retries automatically, or use 4a.
+# Models / API keys : configs/orchestrator/config.yaml, configs/worker/config.yaml
+# Orchestrator prompt: configs/orchestrator/Agent.md   (the worker prompts are generated)
+# Outputs           : runs/4b_orchestrator_gemini/<design>/
+###############################################################################
+
+orchestrator:
+  config: "./configs/orchestrator/config.yaml"
+  agent_md: "./configs/orchestrator/Agent.md"
+  profile: "gemini_preview"        # BIG model (profile in configs/orchestrator/config.yaml)
+
+workers:
+  config: "./configs/worker/config.yaml"
+  profile: "gemini_lite"           # SMALL model used by every worker (configs/worker/config.yaml)
+
+limits:
+  max_subtasks: 8                  # size of the plan
+  max_plan_attempts: 3             # the orchestrator may fix an invalid plan this many times
+  worker_attempts: 3               # attempts of a worker with the tool reports only, before escalating
+  orchestrator_interventions: 3    # times the orchestrator can step in for ONE subtask
+  max_replans: 2                   # times the orchestrator can send the flow back to an earlier subtask
+  report_chars: 4000               # how much of a long log the orchestrator reads (head + tail)
+
+design:
+  design: "p8.yaml"                              # Spec in ../problems/visible/ (or --design pX.yaml)
+  orfs_platform: "sky130hd"
+  pdk_rtl_path: "./PDK_files/"
+  orfs_dir: "/home/OpenROAD-flow-scripts/"       # null: auto-detected from 'openroad' in PATH
+
+flow:
+  verification_mode: "RTL"         # RTL | BOTH (adds gate-level simulation to the RTL check)
+  score_threshold: null            # null: accept the first scored layout | e.g. 92: the config.mk
+                                   # subtask must reach this score (the orchestrator keeps tuning)
+
+paths:
+  evaluation_dir: "../evaluation/"
+  problems_dir: "../problems/visible/"
+  run_dir: "./runs/4b_orchestrator_gemini"         # + /<design>
+  config_template: "./templates/config.mk"
+  sdc_comb_template: "./templates/constraint_comb.sdc"
+  sdc_seq_template: "./templates/constraint_seq.sdc"

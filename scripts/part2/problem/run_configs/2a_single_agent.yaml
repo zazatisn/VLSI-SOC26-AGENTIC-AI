@@ -1,0 +1,91 @@
+###############################################################################
+# PART 2a - Single agent
+#
+# ONE agent (Gemini Flash Lite) writes the testbench, RTL, SDC and config.mk.
+# No iterative optimization, no resynthesis, no validators.
+#
+# Run (from the problem/ or solution/ folder):
+#   python3 asic_autonomous_flow.py --config run_configs/2a_single_agent.yaml
+#
+# Models / API keys : configs/<agent>/config.yaml  (profiles)
+# Prompts           : configs/<agent>/Agent.md     (instructions, rules, feedback)
+# Outputs           : runs/2a_single_agent/
+###############################################################################
+
+# --- AGENTS ---------------------------------------------------------------------
+agents:
+  mode: "single"                 # single: ONE agent for the whole flow | multi: one agent per step
+  agents_dir: "./configs"
+  default_profile: null          # null: every agent uses the active_profile of its config.yaml (gemini_lite)
+
+  # profile: a profile name from configs/<agent>/config.yaml (null = its active_profile)
+  single_agent:
+    profile: null
+  tb_generator:
+    profile: null
+  tb_validator:
+    enabled: false
+    profile: null
+  sdc_generator:
+    profile: null
+  rtl_generator:
+    profile: null
+  rtl_validator:
+    enabled: false
+    profile: null
+  config_mk_generator:
+    profile: null
+  mipro_teacher:
+    enabled: false
+    profile: null
+
+# --- DESIGN ---------------------------------------------------------------------
+design:
+  design: "p8.yaml"                              # Spec in ../problems/visible/ (or use --design pX.yaml)
+  orfs_platform: "sky130hd"
+  pdk_rtl_path: "./PDK_files/"
+  orfs_dir: "/home/OpenROAD-flow-scripts/"       # null: auto-detected from 'openroad' in PATH
+
+# --- FLOW -----------------------------------------------------------------------
+flow:
+  verification_mode: "RTL"          # RTL | BOTH (adds post-synthesis gate-level simulation)
+  skip_rtl_validator: false
+  rtl_gen_dspy_mode: "Simple Run"
+  rtl_train_designs: ["p1.yaml", "p5.yaml", "p7.yaml"]
+  optimized_rtl_flow_path: "./runs/optimized_rtl_generator.json"
+
+  # true : keep tuning config.mk after a successful physical flow until score >= score_threshold
+  # false: stop at the first successful physical flow
+  iterative_optimization: false
+  score_threshold: 92.0
+
+  # true : regenerate the RTL when timing fails by far (WNS < -0.5 ns)
+  # false: keep the RTL, only config.mk can recover timing
+  enable_resynthesis: false
+  max_resynthesis_attempts: 3
+
+# --- ITERATIONS -----------------------------------------------------------------
+iterations:
+  max_tb_gen_iters: 10
+  max_rtl_gen_iters: 10
+  max_sdc_gen_iters: 10
+  max_physical_iters: 10
+  max_single_agent_iters: 10
+
+# --- OVERRIDES (multi mode only): use a file and skip that stage ---------------
+overrides:
+  tb_path: null
+  sdc_path: null
+  rtl_path: null
+  config_path: null
+
+# --- PATHS ----------------------------------------------------------------------
+paths:
+  evaluation_dir: "../evaluation/"
+  problems_dir: "../problems/visible/"
+  results_dir: "./runs/2a_single_agent/results"         # + /<design>: every iteration of every flow
+  solutions_dir: "./runs/2a_single_agent/solution"      # + /<design>: best 6_final.odb / .sdc / RTL
+  config_template: "./templates/config.mk"
+  sdc_comb_template: "./templates/constraint_comb.sdc"
+  sdc_seq_template: "./templates/constraint_seq.sdc"
+  log_file: "./runs/2a_single_agent/asic_autonomous_flow.log"

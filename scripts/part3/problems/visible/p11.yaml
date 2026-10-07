@@ -1,0 +1,40 @@
+simple_8bit_counter:
+  description: An 8-bit up-counter with synchronous reset and an enable signal.
+  tech_node: SkyWater 130HD
+  clock_period: 2.0ns
+  ports:
+    - name: clk
+      direction: input
+      type: wire
+      description: Clock input
+    - name: reset
+      direction: input
+      type: wire
+      description: Synchronous reset (active high) - resets count to 0.
+    - name: en
+      direction: input
+      type: wire
+      description: Enable signal - counter only increments when en is high.
+    - name: count
+      direction: output
+      type: reg
+      width: "[7:0]"
+      description: 8-bit current count value.
+  module_signature: |
+    module simple_8bit_counter(
+        input clk,
+        input reset,
+        input en,
+        output reg [7:0] count
+    );
+  logic_rules:
+    - On posedge clk, if reset is 1, count becomes 0.
+    - Else if en is 1, count increments by 1.
+    - If en is 0, count maintains its current value.
+  sample_input:  "reset: 1, en: 0 -> reset: 0, en: 1 -> reset: 0, en: 1"
+  sample_output: "count: 00 -> count: 01 -> count: 02"
+  timing: |
+    count is updated at each rising edge (latency 1). sample_output[i] is the value of count
+    right after the rising edge that samples sample_input[i].
+    Race-free testbench: drive reset/en on a falling edge, check count on the next falling edge.
+    count wraps from 255 to 0.

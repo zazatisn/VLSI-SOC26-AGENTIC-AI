@@ -1,0 +1,73 @@
+dot_product:
+  description: >
+    Parameterized 2-stage pipelined dot product engine.
+    Accepts two input vectors A and B of length N, performs element-wise signed multiplication
+    followed by summation of partial products. The engine operates with a fixed latency
+    of 2 clock cycles: two register stages (see timing).
+  
+  tech_node: SkyWater 130HD
+  clock_period: 4.5ns
+
+  parameters:
+    N: 8                # Vector length
+    WIDTH: 8            # Bit width of signed input elements
+
+  ports:
+    - name: clk
+      direction: input
+      type: wire
+      description: Clock input (rising-edge)
+
+    - name: rst
+      direction: input
+      type: wire
+      description: Active-high synchronous reset
+
+    - name: A
+      direction: input
+      type: signed [N*WIDTH-1:0]
+      description: Flattened signed vector input A (N elements of WIDTH bits)
+
+    - name: B
+      direction: input
+      type: signed [N*WIDTH-1:0]
+      description: Flattened signed vector input B (N elements of WIDTH bits)
+
+    - name: dot_out
+      direction: output
+      type: reg signed [2*WIDTH+3:0]
+      description: Final dot product result (signed scalar, 2-cycle latency)
+
+  module_signature: |
+    module dot_product #(
+        parameter N = 8,
+        parameter WIDTH = 8
+    ) (
+        input                           clk,
+        input                           rst,
+        input      signed [N*WIDTH-1:0] A,
+        input      signed [N*WIDTH-1:0] B,
+        output reg signed [2*WIDTH+3:0] dot_out
+    );
+
+  sample_usage:
+    description: >
+      A single test case for N=8 and WIDTH=8, with precomputed dot product result shown.
+      Inputs A and B must be provided as flattened bit-vectors in Verilog. 
+      Result is valid 2 cycles after input.
+    clk_sequence:   [1, 0, 1, 0, 1, 0]
+    rst_sequence:   [1, 0, 0, 0, 0, 0]
+    A_sequence:
+      - [[-40, 50, -50, 31, 14, 9, 6, -32]]
+    B_sequence:
+      - [[-1, 30, 41, 14, 37, 50, 22, 29]]
+    expected_dot_out: # Computed: sum(A[i] * B[i])
+      - [0, 0, 96]    # Cycle 0: Reset, Cycle 1: Processing, Cycle 2: Result
+  timing: |
+    Two register stages. A and B are sampled at rising edge k (stage 1: products),
+    dot_out is updated at rising edge k+1 (stage 2: sum). A new A/B pair is accepted every cycle.
+    During reset dot_out is 0.
+    Race-free testbench: drive A and B on a falling edge, and check dot_out two falling edges
+    later (after two rising edges), before driving anything else that would change it.
+    Expected values: dot_out = sum over i of A[i]*B[i], with A[i] = A[i*WIDTH +: WIDTH] as a
+    signed WIDTH-bit number (same for B). Example above: 96.
