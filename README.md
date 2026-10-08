@@ -222,6 +222,15 @@ variable (`api_key: "$GEMINI_API_KEY"`), and one script sets these variables for
 
 > Free tiers have rate limits, so the iterative scripts may be slowed down or throttled. If that happens, wait a bit, reduce the number of runs, or switch to a local model.
 
+> **Google API under high demand.** During busy hours (for example, when the whole room runs at
+> once) the Gemini API can answer with `503 UNAVAILABLE` / "The model is overloaded" or
+> `429 RESOURCE_EXHAUSTED`. This is on Google's side, not a bug in your prompt or setup:
+> 1. **Re-run** the same command after a short wait.
+> 2. If it keeps failing, use **Gemini Lite instead of Preview**. Set `active_profile: "gemini_lite"`
+>    in the `config.yaml` of the agent, or pass `--orchestrator-profile gemini_lite` in Part 4.
+>    `gemini-3-flash-preview` is a preview model with less capacity, so it is overloaded first.
+> 3. Or move some agents to a local model (`ollama-llama3.1`).
+
 ## Repository structure
 
 ```

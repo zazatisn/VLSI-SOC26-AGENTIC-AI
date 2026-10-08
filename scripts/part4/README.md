@@ -157,4 +157,5 @@ versions) and the token table, with separate **big model** and **small models** 
 | `profile 'X' not found` | Use a profile listed in `configs/orchestrator/config.yaml` or `configs/worker/config.yaml` |
 | `Run the script from its own folder` | `cd` into `part4/problem` (or `part4/solution`) |
 | Rate limit (429) / overloaded (503) errors | Every model call is retried automatically (up to 6 times, with backoff). If it still fails, the attempt counts as failed and the flow goes on. If it keeps happening, wait, switch provider (`4a` ↔ `4b`) or move the workers to `ollama-llama3.1` |
+| Gemini `503 UNAVAILABLE` / "model is overloaded" (run `4b`) | High demand on the Google API. Re-run the same command after a short wait. If it keeps failing, use Gemini Lite instead of Preview for the orchestrator: `--orchestrator-profile gemini_lite` |
 | `Your previous answer could not be read` | The answer was cut off or incomplete: the model is asked again. Raise `max_tokens` in the profile if it repeats |

@@ -341,6 +341,7 @@ so you can compare runs 2a–2d. A call answered from the cache (`cache: true`) 
 | Authentication / API key errors, `environment variable ... is not set` | `source /home/scripts/api_keys.sh` (and check the key in `scripts/api_keys.sh`) |
 | Ollama connection errors / model not found | `ollama pull llama3.1` (the server starts with the container) |
 | Rate limit errors (free tier) | Wait a bit, or move some agents to the local model |
+| `503 UNAVAILABLE` / "model is overloaded" / `429 RESOURCE_EXHAUSTED` (Gemini) | High demand on the Google API. Re-run the same command after a short wait. If it keeps failing, use `gemini_lite` instead of `gemini_preview` (`active_profile` in the agent's `config.yaml`), or move some agents to the local model |
 | `OpenROAD evaluation failed` | Check `runs/<run>/results/<design>/physical_flow/*eval*.log`. Designs without reference results (`p11`–`p13`) are not scored |
 | RTL keeps failing a simulation with values one cycle early/late | The testbench and the RTL disagree on the latency: both prompts must follow the spec's `timing` section |
 | `Tool 'openroad' not found in PATH` | Run inside the Docker container |
