@@ -79,5 +79,5 @@ python3 make_reference.py --keep-layout     # every design without a pN.json; ~2
 It runs the golden files through ORFS exactly like the flows do. If the golden `config.mk` fails
 (small designs often hit PDN errors), it retries with safer floorplans and saves the one that worked.
 It then measures the layout with `evaluation/report_metrics.tcl` and writes `pN.json` to Parts 2, 3 and 4.
-The golden layout itself scores 75/100. `--keep-layout` also keeps the golden GDS in `pN/layout/`.
+The golden layout itself scores 75–80/100 (80 when the reference meets timing: a TNS of 0 earns the TNS bonus). `--keep-layout` also keeps the golden GDS in `pN/layout/`.
 That's a known-good result to show if a live run fails. Commit the new `pN.json` files.

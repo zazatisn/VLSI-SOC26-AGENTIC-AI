@@ -18,3 +18,5 @@ scripts/part2/_dev_archive/
 tests/
 # Build outputs of reference/make_reference.py (the generated pN.json files ARE committed)
 scripts/reference/p*/build/
+# Logs of the environment regression
+scripts/regression/logs/

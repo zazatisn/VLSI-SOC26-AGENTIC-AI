@@ -5,7 +5,7 @@ Generate the PPA reference results (evaluation/visible/pN/pN.json) from the gold
 For each design it runs the golden RTL + SDC + config.mk through OpenROAD-flow-scripts exactly like
 the flows do, then measures the final layout with evaluation/report_metrics.tcl (the same script the
 PPA score uses) and writes pN.json into evaluation/visible/pN of Parts 2, 3 and 4. With the reference
-in place the flows score that design (the golden layout itself scores 75/100).
+in place the flows score that design (the golden layout itself scores 75-80/100).
 
 If the flow fails with the golden config.mk (small designs often hit PDN/placement errors), it retries
 with a few safer floorplans and saves the one that worked as reference/pN/config.mk.

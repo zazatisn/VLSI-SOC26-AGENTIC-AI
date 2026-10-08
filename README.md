@@ -13,6 +13,7 @@ Hands-on material for the VLSI-SoC 2026 tutorial on **agentic AI for Electronic 
   - [Option A: Pull the prebuilt Docker image (recommended)](#option-a-pull-the-prebuilt-docker-image-recommended)
   - [Option B: Build the image from the Dockerfile](#option-b-build-the-image-from-the-dockerfile)
   - [Run the container](#run-the-container)
+  - [Check the environment](#check-the-environment)
   - [Open a second terminal](#open-a-second-terminal-optional)
   - [Option C: Install the tools locally (no Docker)](#option-c-install-the-tools-locally-no-docker)
 - [What is in the image](#what-is-in-the-image)
@@ -123,6 +124,18 @@ cd /home/scripts/part1
 ```
 
 > `--rm` deletes the container when you exit. Your work is safe as long as it lives in the mounted `scripts/` folder.
+
+### Check the environment
+
+Inside the container (or after a local install), run the regression once:
+
+```bash
+python3 /home/scripts/regression/regression.py --quick   # 30 s: tools, Python, simulation, synthesis
+python3 /home/scripts/regression/regression.py           # + a full OpenROAD flow and PPA score (a few minutes)
+python3 /home/scripts/regression/regression.py --llm     # + one-line answers from the models (a few tokens)
+```
+
+Every check prints PASS / FAIL / SKIP. If anything fails, see `scripts/regression/README.md`.
 
 ### Open a second terminal (optional)
 
@@ -322,6 +335,7 @@ variable (`api_key: "$GEMINI_API_KEY"`), and one script sets these variables for
     │   ├── check_designs.py   #   spec <-> golden RTL <-> reference TB, --rtl sign-off, --tb grading
     │   └── make_reference.py  #   generates the PPA references (pN.json) for p11-p16
     ├── rescue/                # record the tutorial runs in advance, replay them if a live run fails
+    ├── regression/            # environment check: tools, simulation, synthesis, OpenROAD, models
     └── part4/
         ├── README.md          # full guide for Part 4
         ├── problem/           # what you work on
@@ -514,6 +528,11 @@ of the big and the small models. See [`scripts/part4/README.md`](scripts/part4/R
 
 Run these once in the container, a few days before the session:
 
+0. **Check the environment** with everything, models included:
+   ```bash
+   python3 /home/scripts/regression/regression.py --all
+   ```
+   Run this also before you upload a new image to Docker Hub.
 1. **Check the designs**:
    ```bash
    cd /home/scripts/reference && python3 check_designs.py --mutants --synth --gls
