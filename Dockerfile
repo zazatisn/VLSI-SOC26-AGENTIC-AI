@@ -23,12 +23,8 @@ RUN git clone https://github.com/YosysHQ/yosys.git && pip3 install cmake && cd y
 
 # installing KLayout binary #
 RUN wget https://www.klayout.org/downloads/Ubuntu-22/klayout_0.30.12-1_amd64.deb && \
-<<<<<<< Updated upstream
-    apt install ./klayout_0.30.12-1_amd64.deb
-=======
     ${APT_COMMAND} install ./klayout_0.30.12-1_amd64.deb && \
     rm klayout_0.30.12-1_amd64.deb
->>>>>>> Stashed changes
 
 # installing OpenROAD flow scripts #
 RUN git clone https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts.git
