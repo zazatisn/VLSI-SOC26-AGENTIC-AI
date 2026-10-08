@@ -63,7 +63,7 @@ def parse_args() -> argparse.Namespace:
                         help=f"Flow config file (default: {DEFAULT_FLOW_CONFIG})")
     parser.add_argument("--mode", choices=["single", "multi"],
                         help="Agent mode: one agent for the whole flow, or one agent per step")
-    parser.add_argument("--design", help="Design spec inside problems_dir, e.g. p1.yaml")
+    parser.add_argument("--design", help="Design spec inside designs_dir, e.g. p1.yaml")
     parser.add_argument("--profile",
                         help="Use this profile for EVERY agent (must exist in each agent's config.yaml)")
     parser.add_argument("--agent-profile", action="append", default=[], metavar="AGENT=PROFILE",
@@ -325,7 +325,7 @@ CONFIG_PATH = opt_path(cfg_get(FLOW_CONFIG, "overrides.config_path"))
 
 # Directories and templates
 EVALUATION_DIR = Path(cfg_get(FLOW_CONFIG, "paths.evaluation_dir", "../evaluation/"))
-PROBLEMS_DIR   = Path(cfg_get(FLOW_CONFIG, "paths.problems_dir", "../problems/visible/"))
+DESIGNS_DIR   = Path(cfg_get(FLOW_CONFIG, "paths.designs_dir", None) or cfg_get(FLOW_CONFIG, "paths.problems_dir", "../designs/"))
 RESULTS_DIR    = Path(cfg_get(FLOW_CONFIG, "paths.results_dir", "../results/visible")) / Path(DESIGN).stem
 SOLUTIONS_DIR  = Path(cfg_get(FLOW_CONFIG, "paths.solutions_dir", "../solutions/visible")) / Path(DESIGN).stem
 
@@ -2087,7 +2087,7 @@ def build_rtl_trainset() -> list[dspy.Example]:
     for yaml_file in RTL_TRAIN_DESIGNS:
 
         # Load YAML spec
-        yaml_path = PROBLEMS_DIR / yaml_file
+        yaml_path = DESIGNS_DIR / yaml_file
         if not yaml_path.exists():
             print(f"Skipping '{yaml_file}': YAML spec not found at {yaml_path}.")
             continue
@@ -2296,7 +2296,7 @@ def check_environment():
             all_ok = False
 
     # Check for required directories
-    required_dirs = [EVALUATION_DIR, PROBLEMS_DIR, RESULTS_DIR, SOLUTIONS_DIR, PDK_RTL_PATH]
+    required_dirs = [EVALUATION_DIR, DESIGNS_DIR, RESULTS_DIR, SOLUTIONS_DIR, PDK_RTL_PATH]
     if ORFS_DIR is not None:
         required_dirs.append(ORFS_DIR)
     
@@ -2322,7 +2322,7 @@ def check_environment():
 
     # Check for Required Files
     required_files = {
-        "Design Spec": PROBLEMS_DIR / DESIGN,
+        "Design Spec": DESIGNS_DIR / DESIGN,
         "Combinational SDC Template": SDC_COMB_TEMPLATE,
         "Sequential SDC Template": SDC_SEQ_TEMPLATE,
         "Config Template": CONFIG_TEMPLATE,
@@ -2348,7 +2348,7 @@ def check_environment():
     # RTL trainset validation 
     if RTL_GEN_DSPY_MODE == "Optimize":
         for yaml_file in RTL_TRAIN_DESIGNS:
-            yaml_path = PROBLEMS_DIR / yaml_file
+            yaml_path = DESIGNS_DIR / yaml_file
             if not yaml_path.exists():
                 print(f"{RD}❌ Error: Trainset spec '{yaml_file}' not found at {yaml_path}.{R}")
                 all_ok = False
@@ -2570,7 +2570,7 @@ def main():
     check_environment()
 
     # Load the Spec
-    design_spec = PROBLEMS_DIR / DESIGN
+    design_spec = DESIGNS_DIR / DESIGN
     with open(design_spec, "r") as f:
         yaml_data = yaml.safe_load(f)
 

@@ -35,7 +35,7 @@ Every check that fails is sent back to the responsible agent as **feedback**, an
 ```
 part2/
 ├── README.md                     # this file
-├── problems/visible/             # the YAML specs (p1.yaml, p5.yaml, ...)
+├── designs/                      # the YAML specs (p1.yaml, p5.yaml, ...)
 ├── evaluation/                   # PPA scoring scripts + reference results
 ├── problem/                      # ◄ what you work on
 │   ├── asic_autonomous_flow.py   # the flow (do not modify)
@@ -167,7 +167,7 @@ You do **not** modify the script. You improve the agents through their `Agent.md
 | | `default_profile` | Profile for every agent (`null` = each agent's `active_profile`) |
 | | `<agent>.profile` | Profile for one agent, e.g. `"ollama-llama3.1"` (`null` = not set) |
 | | `<agent>.enabled` | Turn the validators (and the MIPROv2 teacher) on/off |
-| `design` | `design` | Spec in `../problems/visible/`, e.g. `p8.yaml` |
+| `design` | `design` | Spec in `../designs/`, e.g. `p8.yaml` |
 | | `orfs_platform` | ORFS platform (`sky130hd`) |
 | | `pdk_rtl_path` | Gate-level simulation models (`./PDK_files/`) |
 | | `orfs_dir` | OpenROAD-flow-scripts folder (`null` = auto-detect) |

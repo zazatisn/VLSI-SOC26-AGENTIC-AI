@@ -41,7 +41,7 @@ agents:
 
 # --- DESIGN ---------------------------------------------------------------------
 design:
-  design: "p8.yaml"                              # Spec in ../problems/visible/ (or use --design pX.yaml)
+  design: "p8.yaml"                              # Spec in ../designs/ (or use --design pX.yaml)
   orfs_platform: "sky130hd"
   pdk_rtl_path: "./PDK_files/"
   orfs_dir: "/home/OpenROAD-flow-scripts/"       # null: auto-detected from 'openroad' in PATH
@@ -82,7 +82,7 @@ overrides:
 # --- PATHS ----------------------------------------------------------------------
 paths:
   evaluation_dir: "../evaluation/"
-  problems_dir: "../problems/visible/"
+  designs_dir: "../designs/"
   results_dir: "./runs/2d_multi_agent_mixed_models_validators/results"         # + /<design>: every iteration of every flow
   solutions_dir: "./runs/2d_multi_agent_mixed_models_validators/solution"      # + /<design>: best 6_final.odb / .sdc / RTL
   config_template: "./templates/config.mk"

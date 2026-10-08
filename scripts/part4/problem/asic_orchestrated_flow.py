@@ -65,7 +65,7 @@ def parse_args() -> argparse.Namespace:
                                                  "plans subtasks and writes the prompts of small worker models.")
     parser.add_argument("--config", type=Path, default=Path("run_configs/4a_orchestrator_claude.yaml"),
                         help="Run config file (default: run_configs/4a_orchestrator_claude.yaml)")
-    parser.add_argument("--design", help="Design spec inside problems_dir, e.g. p1.yaml")
+    parser.add_argument("--design", help="Design spec inside designs_dir, e.g. p1.yaml")
     parser.add_argument("--orchestrator-profile", help="Profile of the orchestrator (configs/orchestrator/config.yaml)")
     parser.add_argument("--worker-profile", help="Profile of every worker (configs/worker/config.yaml)")
     return parser.parse_args()
@@ -106,7 +106,7 @@ VERIFICATION_MODE = str(cfg_get(CFG, "flow.verification_mode", "RTL")).upper()
 SCORE_THRESHOLD   = cfg_get(CFG, "flow.score_threshold")   # None: accept the first successful layout
 
 EVALUATION_DIR    = Path(cfg_get(CFG, "paths.evaluation_dir", "../evaluation/"))
-PROBLEMS_DIR      = Path(cfg_get(CFG, "paths.problems_dir", "../problems/visible/"))
+DESIGNS_DIR      = Path(cfg_get(CFG, "paths.designs_dir", None) or cfg_get(CFG, "paths.problems_dir", "../designs/"))
 RUN_DIR           = Path(cfg_get(CFG, "paths.run_dir", "./runs/4a_orchestrator_claude")) / Path(DESIGN).stem
 CONFIG_TEMPLATE   = Path(cfg_get(CFG, "paths.config_template", "./templates/config.mk"))
 SDC_COMB_TEMPLATE = Path(cfg_get(CFG, "paths.sdc_comb_template", "./templates/constraint_comb.sdc"))
@@ -866,10 +866,10 @@ def check_environment():
         print(f"{RD}❌ Error: Tool '{tool}' not found in PATH.{R}"); ok = False
     if ORFS_DIR is None and shutil.which("openroad"):
         ORFS_DIR = next((p for p in Path(shutil.which("openroad")).resolve().parents if (p / "flow").is_dir()), None)
-    for d in [EVALUATION_DIR, PROBLEMS_DIR, PDK_RTL_PATH, ORFS_DIR]:
+    for d in [EVALUATION_DIR, DESIGNS_DIR, PDK_RTL_PATH, ORFS_DIR]:
         if d is None or not Path(d).exists():
             print(f"{RD}❌ Error: Required directory not found: '{d}'{R}"); ok = False
-    for f in [PROBLEMS_DIR / DESIGN, CONFIG_TEMPLATE, SDC_SEQ_TEMPLATE, SDC_COMB_TEMPLATE,
+    for f in [DESIGNS_DIR / DESIGN, CONFIG_TEMPLATE, SDC_SEQ_TEMPLATE, SDC_COMB_TEMPLATE,
               EVALUATION_DIR / "evaluate_openroad.py"]:
         if not Path(f).exists():
             print(f"{RD}❌ Error: File not found: '{f}'{R}"); ok = False
@@ -901,7 +901,7 @@ def main() -> dict:
     setup_logging(RUN_DIR / "asic_orchestrated_flow.log")
     check_environment()
 
-    data = yaml.safe_load((PROBLEMS_DIR / DESIGN).read_text())
+    data = yaml.safe_load((DESIGNS_DIR / DESIGN).read_text())
     module_id = list(data.keys())[0]
     spec = data[module_id]
 

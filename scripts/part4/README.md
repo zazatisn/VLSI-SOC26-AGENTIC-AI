@@ -42,7 +42,7 @@ the SDC must follow its template, and the OpenROAD flow must finish and be score
 ```
 part4/
 ├── README.md
-├── problems/visible/                 # the YAML specs (same as Parts 2 and 3)
+├── designs/                          # the YAML specs (same as Parts 2 and 3)
 ├── evaluation/                       # PPA scoring
 ├── problem/                          # ◄ what you work on
 │   ├── asic_orchestrated_flow.py     # the flow (do not modify)

@@ -33,7 +33,7 @@ limits:
   report_chars: 4000               # how much of a long log the orchestrator reads (head + tail)
 
 design:
-  design: "p8.yaml"                              # Spec in ../problems/visible/ (or --design pX.yaml)
+  design: "p8.yaml"                              # Spec in ../designs/ (or --design pX.yaml)
   orfs_platform: "sky130hd"
   pdk_rtl_path: "./PDK_files/"
   orfs_dir: "/home/OpenROAD-flow-scripts/"       # null: auto-detected from 'openroad' in PATH
@@ -45,7 +45,7 @@ flow:
 
 paths:
   evaluation_dir: "../evaluation/"
-  problems_dir: "../problems/visible/"
+  designs_dir: "../designs/"
   run_dir: "./runs/4a_orchestrator_claude"         # + /<design>
   config_template: "./templates/config.mk"
   sdc_comb_template: "./templates/constraint_comb.sdc"

@@ -31,7 +31,7 @@ Same as Part 2:
 ```
 part3/
 ├── README.md
-├── problems/visible/             # the YAML specs
+├── designs/                      # the YAML specs
 ├── evaluation/                   # PPA scoring scripts + reference results
 ├── problem/                      # ◄ what you work on (minimal Agent.md prompts)
 │   ├── asic_autonomous_flow.py

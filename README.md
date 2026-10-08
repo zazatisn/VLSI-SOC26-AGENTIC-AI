@@ -258,7 +258,7 @@ variable (`api_key: "$GEMINI_API_KEY"`), and one script sets these variables for
     ├── api_keys.example.sh    # template for your API keys (copy to api_keys.sh)
     ├── part2/
     │   ├── README.md          # full guide for Parts 2 and 3
-    │   ├── problems/visible/  # YAML hardware specs
+    │   ├── designs/           # YAML hardware specs
     │   ├── evaluation/        # PPA scoring
     │   ├── problem/           # what you work on
     │   │   ├── asic_autonomous_flow.py
