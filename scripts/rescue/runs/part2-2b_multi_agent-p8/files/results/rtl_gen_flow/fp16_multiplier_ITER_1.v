@@ -6,62 +6,62 @@ module fp16_multiplier(
     output reg [15:0] result
 );
 
-    reg        sign;
-    reg signed [5:0] raw_exp;
-    reg [10:0] mant_a, mant_b;
-    reg [23:0] prod;
-    reg [4:0]  final_exp;
-    reg [9:0]  final_mant;
-    reg        round_bit, sticky_bit, guard_bit;
+    reg sign;
+    reg [4:0] exp_a, exp_b, exp_res;
+    reg [10:0] sig_a, sig_b;
+    reg [21:0] product;
+    reg [4:0] sum_exp;
+    reg [10:0] norm_sig;
+    reg [9:0] rounded_sig;
+    reg guard, round, sticky;
+    reg round_up;
 
     always @(*) begin
-        // Defaults
-        result = 16'b0;
         sign = a[15] ^ b[15];
+        exp_a = a[14:10];
+        exp_b = b[14:10];
+        sig_a = {1'b1, a[9:0]};
+        sig_b = {1'b1, b[9:0]};
         
-        // Exponents and Mantissas
-        // If exponent is 0, treat as 0.0 per spec.
-        if (a[14:10] == 5'b0 || b[14:10] == 5'b0) begin
+        // Zero detection
+        if ((exp_a == 5'd0) || (exp_b == 5'd0)) begin
             result = {sign, 15'b0};
         end else begin
-            raw_exp = a[14:10] + b[14:10] - 15;
-            mant_a = {1'b1, a[9:0]};
-            mant_b = {1'b1, b[9:0]};
-            prod = mant_a * mant_b; // 12 * 12 = 24 bits
-
-            // Normalization
-            if (prod[23]) begin
-                final_exp = raw_exp + 1;
-                // Guard: prod[12], Round: prod[11], Sticky: |prod[10:0]
-                guard_bit = prod[12];
-                round_bit = prod[11];
-                sticky_bit = |prod[10:0];
-                final_mant = prod[22:13];
+            sum_exp = exp_a + exp_b - 5'd15;
+            product = sig_a * sig_b;
+            
+            // Normalize product [1, 4) -> [1, 2)
+            if (product[21]) begin
+                norm_sig = product[21:11];
+                guard = product[10];
+                round = product[9];
+                sticky = (|product[8:0]);
+                exp_res = sum_exp + 5'd1;
             end else begin
-                final_exp = raw_exp;
-                guard_bit = prod[11];
-                round_bit = prod[10];
-                sticky_bit = |prod[9:0];
-                final_mant = prod[21:12];
+                norm_sig = product[20:10];
+                guard = product[9];
+                round = product[8];
+                sticky = (|product[7:0]);
+                exp_res = sum_exp;
             end
-
-            // Rounding (Nearest Even)
-            if (guard_bit && (round_bit || sticky_bit || final_mant[0])) begin
-                final_mant = final_mant + 1;
-                if (final_mant == 10'b0) begin
-                    final_exp = final_exp + 1;
-                end
+            
+            // Round to nearest even
+            round_up = guard && (round || sticky || norm_sig[0]);
+            rounded_sig = norm_sig[9:0] + round_up;
+            
+            // Check for carry out from rounding
+            if (rounded_sig == 10'b0 && round_up) begin
+                exp_res = exp_res + 5'd1;
             end
-
-            // Overflow/Underflow
-            if (final_exp >= 31) begin
-                result = {sign, 5'b11111, 10'b0};
-            end else if (final_exp <= 0) begin
-                result = {sign, 15'b0};
+            
+            // Check overflow/underflow
+            if (exp_res >= 5'd31) begin
+                result = {sign, 5'd31, 10'd0}; // Infinity
+            end else if (exp_res <= 5'd0) begin
+                result = {sign, 15'd0};        // Underflow to zero
             end else begin
-                result = {sign, final_exp[4:0], final_mant};
+                result = {sign, exp_res, rounded_sig};
             end
         end
     end
-
 endmodule

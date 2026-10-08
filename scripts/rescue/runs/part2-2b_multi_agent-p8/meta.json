@@ -14,9 +14,11 @@
     "--design",
     "p8.yaml"
   ],
-  "recorded": "2026-10-08T09:40:08",
-  "duration_s": 123.3,
+  "recorded": "2026-10-08T11:56:07",
+  "duration_s": 72.6,
   "exit_code": 0,
   "git_commit": "",
-  "tokens_total": 50574
+  "fresh_cache": true,
+  "tokens_total": 52721,
+  "status": "failed"
 }

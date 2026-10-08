@@ -11,24 +11,25 @@ module dot_product #(
     output reg signed [2*WIDTH+3:0] dot_out
 );
 
-    reg signed [2*WIDTH-1:0] products [0:N-1];
+    reg signed [2*WIDTH-1:0] prod_0, prod_1, prod_2, prod_3, prod_4, prod_5, prod_6, prod_7;
     integer i;
 
     always @(posedge clk) begin
         if (rst) begin
-            for (i = 0; i < N; i = i + 1) begin
-                products[i] <= 0;
-            end
+            prod_0 <= 0; prod_1 <= 0; prod_2 <= 0; prod_3 <= 0;
+            prod_4 <= 0; prod_5 <= 0; prod_6 <= 0; prod_7 <= 0;
             dot_out <= 0;
         end else begin
-            // Stage 1: Multiplication
-            for (i = 0; i < N; i = i + 1) begin
-                products[i] <= $signed(A[i*WIDTH +: WIDTH]) * $signed(B[i*WIDTH +: WIDTH]);
-            end
-
-            // Stage 2: Accumulation
-            dot_out <= products[0] + products[1] + products[2] + products[3] + 
-                       products[4] + products[5] + products[6] + products[7];
+            prod_0 <= $signed(A[0*WIDTH +: WIDTH]) * $signed(B[0*WIDTH +: WIDTH]);
+            prod_1 <= $signed(A[1*WIDTH +: WIDTH]) * $signed(B[1*WIDTH +: WIDTH]);
+            prod_2 <= $signed(A[2*WIDTH +: WIDTH]) * $signed(B[2*WIDTH +: WIDTH]);
+            prod_3 <= $signed(A[3*WIDTH +: WIDTH]) * $signed(B[3*WIDTH +: WIDTH]);
+            prod_4 <= $signed(A[4*WIDTH +: WIDTH]) * $signed(B[4*WIDTH +: WIDTH]);
+            prod_5 <= $signed(A[5*WIDTH +: WIDTH]) * $signed(B[5*WIDTH +: WIDTH]);
+            prod_6 <= $signed(A[6*WIDTH +: WIDTH]) * $signed(B[6*WIDTH +: WIDTH]);
+            prod_7 <= $signed(A[7*WIDTH +: WIDTH]) * $signed(B[7*WIDTH +: WIDTH]);
+            
+            dot_out <= prod_0 + prod_1 + prod_2 + prod_3 + prod_4 + prod_5 + prod_6 + prod_7;
         end
     end
 

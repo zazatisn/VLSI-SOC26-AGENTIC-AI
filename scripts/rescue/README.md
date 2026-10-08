@@ -12,6 +12,19 @@ python3 make_rescue.py --part 2 --run 2b_multi_agent --design p8.yaml      # a s
 python3 make_rescue.py --part 1 --task google_iterative --design enc_bin2gray
 ```
 
+Useful options:
+
+| Option | What it does |
+|---|---|
+| `--tries 3` | A rescue should be a run that **works**. A failed entry is re-run up to 3 times, the first success is kept (failed attempts stay as `<id>.try1`, `.try2` …, useful to show a failure too) |
+| `--only-failed` | With `--preset`: re-record only the runs that failed or used cached answers, keep the good ones |
+| `--use-cache` | By default every recording starts with an empty DSPy cache, so the models really answer and the token counts are real. This option reuses your normal cache (faster, but cached answers count 0 tokens) |
+| `--skip-existing` | With `--preset`: do not touch runs that are already recorded |
+
+```bash
+python3 make_rescue.py --preset tutorial --only-failed --tries 3   # fix the set before the tutorial
+```
+
 The presets are in `presets.yaml`: edit them to match what you will show. Every run uses the
 part's `solution/` folder (the golden prompts). Add `variant: problem` to record a baseline run with
 the minimal prompts.
@@ -40,7 +53,9 @@ python3 show_rescue.py files 4a-p1                # where the generated Agent.md
 Good practice:
 - Record a few days before, with the final version of the repository. `meta.json` keeps the git
   commit, so you can see when a recording is stale.
-- Copy `runs/` to a USB stick as well. Recorded runs are not git-ignored: commit them only if you
-  want attendees to have them (the `.odb` layouts make the repository larger).
+- Check `python3 show_rescue.py list` before committing: every run you plan to show should be
+  `success` with real tokens (no `(cache)`).
+- Copy `runs/` to a USB stick as well. Recorded runs, including their logs, are committed with the
+  repository (about 10 MB for the tutorial preset).
 - The golden layouts from `reference/make_reference.py --keep-layout` are a second safety net:
   known-good results without any LLM.

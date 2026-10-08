@@ -1,0 +1,28 @@
+OpenROAD bazel-nostamp 
+Features included (+) or not (-): -GPU -GUI -Python
+This program is licensed under the BSD-3 license. See the LICENSE file for details.
+Components of this program may be licensed under more restrictive licenses which must be honored.
+
+==================== Summary ====================
+Design area 254 um^2 23% utilization.
+tns max 0.00
+wns max 0.00
+worst slack max 0.15
+Group                  Internal  Switching    Leakage      Total
+                          Power      Power      Power      Power (Watts)
+----------------------------------------------------------------
+Sequential             2.26e-04   3.46e-06   4.90e-11   2.30e-04  55.6%
+Combinational          1.18e-05   4.50e-06   3.74e-11   1.63e-05   4.0%
+Clock                  1.21e-04   4.63e-05   1.38e-11   1.67e-04  40.5%
+Macro                  0.00e+00   0.00e+00   0.00e+00   0.00e+00   0.0%
+Pad                    0.00e+00   0.00e+00   0.00e+00   0.00e+00   0.0%
+----------------------------------------------------------------
+Total                  3.59e-04   5.43e-05   1.00e-10   4.14e-04 100.0%
+                          86.9%      13.1%       0.0%
+Clock Period: 1.100 ns
+Metrics written to p1.json
+WNS Score: 35.99/40
+TNS Score: 20.00/20
+Power Score: 20.00/20
+Area Score: 14.21/20
+Final Score: 90.20644876454499/100

@@ -1,0 +1,79 @@
+# =============================================================================
+# VLSI-SoC 2026 "Agentic AI in EDA": the same environment as ./Dockerfile, for ARM64 (aarch64)
+# Apple Silicon Macs (M1-M4), ARM Linux machines (AWS Graviton, Ampere, Raspberry Pi 5 ...)
+#
+#   docker build -f Dockerfile.arm64 -t vlsi-soc26-ai .
+#
+# (x86-64 machines do not need to build: docker pull kostasvarak/vlsi-soc26-ai:latest, see README)
+#
+# Differences with the x86 Dockerfile:
+#   - bazelisk for linux-arm64
+#   - KLayout: klayout.org has no ARM .deb, so it is built from source (batch mode, no GUI,
+#     enough for the GDS merge of the flow; qmake is still needed to build it).
+#     If that build fails, Ubuntu's klayout package is used.
+#   - BAZEL_JOBS limits the parallel OpenROAD build jobs (default 4): each job can take 2-3 GB.
+#     In Docker Desktop give the VM at least 16 GB of RAM (Settings > Resources), or lower BAZEL_JOBS:
+#       docker build -f Dockerfile.arm64 --build-arg BAZEL_JOBS=2 -t vlsi-soc26-ai .
+# =============================================================================
+FROM --platform=linux/arm64 ubuntu:22.04
+ENV DEBIAN_FRONTEND=noninteractive
+ARG APT_COMMAND="apt-get -o Acquire::Retries=3 -y"
+ARG BAZEL_JOBS=4
+ARG KLAYOUT_VERSION=0.30.12
+ENV HOME=/home
+
+RUN ${APT_COMMAND} update && ${APT_COMMAND} install wget curl build-essential gcc g++ gawk git make python3 lld bison clang flex \
+    libffi-dev libfl-dev libreadline-dev pkg-config tcl-dev zlib1g-dev graphviz xdot \
+    python3-dev libexpat1-dev libcurl4-openssl-dev libgit2-dev time qtbase5-dev qt5-qmake
+
+# installing OpenROAD with bazel #
+WORKDIR /home
+RUN wget https://github.com/bazelbuild/bazelisk/releases/latest/download/bazelisk-linux-arm64 && \
+    chmod +x bazelisk-linux-arm64 && mv bazelisk-linux-arm64 /usr/local/bin/bazel && bazel --version
+
+RUN git clone --recursive https://github.com/The-OpenROAD-Project/OpenROAD.git && \
+    cd OpenROAD && bazel build --jobs=${BAZEL_JOBS} //:openroad
+
+# installing PIP #
+RUN curl -sSL https://bootstrap.pypa.io/get-pip.py -o get-pip.py && python3 get-pip.py && rm get-pip.py
+
+# installing YOSYS #
+RUN git clone https://github.com/YosysHQ/yosys.git && pip3 install cmake && cd yosys && git submodule update --init && cmake -B build . -DCMAKE_BUILD_TYPE=Release && \
+    cmake --build build --config Release --parallel $(nproc) && cmake --install build --strip
+
+# installing KLayout: from source (no Qt / GUI, Python macros enabled), else Ubuntu's package #
+RUN ( git clone --depth 1 -b v${KLAYOUT_VERSION} https://github.com/KLayout/klayout.git /tmp/klayout && \
+      cd /tmp/klayout && \
+      ./build.sh -without-qt -noruby -python python3 -prefix /opt/klayout -option -j$(nproc) && \
+      printf '#!/bin/sh\nexport LD_LIBRARY_PATH=/opt/klayout:$LD_LIBRARY_PATH\nexec /opt/klayout/klayout "$@"\n' > /usr/local/bin/klayout && \
+      chmod +x /usr/local/bin/klayout && klayout -v ) \
+    || ( echo "KLayout source build failed: installing Ubuntu's klayout package instead" && \
+         ${APT_COMMAND} install klayout && klayout -v ) ; \
+    rm -rf /tmp/klayout
+
+# installing OpenROAD flow scripts #
+RUN git clone https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts.git
+
+# setting the enviroment variables for OpenROAD and YOSYS #
+ENV OPENROAD_EXE=/home/OpenROAD/bazel-bin/openroad
+ENV YOSYS_EXE=/usr/local/bin/yosys
+
+# make 'openroad' available in PATH (a wrapper keeps the Bazel runfiles next to the real binary) #
+RUN printf '#!/bin/sh\nexec /home/OpenROAD/bazel-bin/openroad "$@"\n' > /usr/local/bin/openroad && \
+    chmod +x /usr/local/bin/openroad && openroad -version
+
+# installing Ollama and DSPY (the Ollama installer detects arm64) #
+RUN ${APT_COMMAND} install zstd pciutils lshw && curl -fsSL https://ollama.com/install.sh | sh
+RUN pip3 install ollama dspy pyyaml
+
+# install iverilog #
+RUN ${APT_COMMAND} install iverilog
+
+# load the API keys (scripts/api_keys.sh, see README) in every interactive shell #
+# (carriage returns are removed first, in case the file was saved with Windows line endings) #
+RUN printf '%s\n' '[ -f /home/scripts/api_keys.sh ] && . <(tr -d "\r" < /home/scripts/api_keys.sh)' >> /etc/bash.bashrc
+
+# quick check of the whole toolchain at the end of the build #
+RUN uname -m && iverilog -V | head -1 && yosys -V && openroad -version && klayout -v && python3 -c "import dspy, yaml" && ollama --version
+
+CMD ["sh", "-c", "ollama serve > /dev/null 2>&1 & sleep 2 && bash"]

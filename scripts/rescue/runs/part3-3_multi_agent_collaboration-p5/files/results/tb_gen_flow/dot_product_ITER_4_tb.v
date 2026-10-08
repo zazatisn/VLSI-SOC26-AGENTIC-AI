@@ -1,9 +1,10 @@
 `timescale 1ns/1ps
 
 module tb_dot_product;
+
     parameter N = 8;
     parameter WIDTH = 8;
-    parameter PERIOD = 4.5;
+    parameter CLK_PERIOD = 4.5;
 
     reg clk;
     reg rst;
@@ -11,10 +12,14 @@ module tb_dot_product;
     reg signed [N*WIDTH-1:0] B;
     wire signed [2*WIDTH+3:0] dot_out;
 
-    integer k;
-    reg signed [2*WIDTH+3:0] exp_val;
+    reg signed [2*WIDTH+3:0] expected_val;
 
-    dot_product #(.N(N), .WIDTH(WIDTH)) dut (
+    integer i;
+
+    dot_product #(
+        .N(N),
+        .WIDTH(WIDTH)
+    ) dut (
         .clk(clk),
         .rst(rst),
         .A(A),
@@ -22,70 +27,59 @@ module tb_dot_product;
         .dot_out(dot_out)
     );
 
-    always #(PERIOD/2.0) clk = ~clk;
+    initial begin
+        clk = 0;
+        forever #(CLK_PERIOD/2.0) clk = ~clk;
+    end
 
-    task set_vector;
-        output [N*WIDTH-1:0] vec;
-        input integer v0, v1, v2, v3, v4, v5, v6, v7;
+    function signed [2*WIDTH+3:0] calc_dot;
+        input [N*WIDTH-1:0] a_in;
+        input [N*WIDTH-1:0] b_in;
+        integer k;
+        reg signed [WIDTH-1:0] a_val;
+        reg signed [WIDTH-1:0] b_val;
         begin
-            vec = {v0[WIDTH-1:0], v1[WIDTH-1:0], v2[WIDTH-1:0], v3[WIDTH-1:0], v4[WIDTH-1:0], v5[WIDTH-1:0], v6[WIDTH-1:0], v7[WIDTH-1:0]};
-        end
-    endtask
-
-    task apply_and_check;
-        input signed [N*WIDTH-1:0] in_a;
-        input signed [N*WIDTH-1:0] in_b;
-        integer i;
-        reg signed [2*WIDTH+3:0] local_sum;
-        begin
-            @(negedge clk);
-            A = in_a;
-            B = in_b;
-            
-            @(negedge clk);
-            @(negedge clk);
-            
-            local_sum = 0;
-            for (i = 0; i < N; i = i + 1) begin
-                local_sum = local_sum + ($signed(in_a[i*WIDTH +: WIDTH]) * $signed(in_b[i*WIDTH +: WIDTH]));
+            calc_dot = 0;
+            for (k = 0; k < N; k = k + 1) begin
+                a_val = a_in[k*WIDTH +: WIDTH];
+                b_val = b_in[k*WIDTH +: WIDTH];
+                calc_dot = calc_dot + (a_val * b_val);
             end
-            exp_val = local_sum;
+        end
+    endfunction
 
-            if (dot_out === exp_val)
-                $display("TEST: PASS | Inputs: A=%h B=%h | Expected: %d | Output: %d", in_a, in_b, exp_val, dot_out);
-            else
-                $display("TEST: FAIL | Inputs: A=%h B=%h | Expected: %d | Output: %d", in_a, in_b, exp_val, dot_out);
+    task run_test;
+        input [N*WIDTH-1:0] a_val;
+        input [N*WIDTH-1:0] b_val;
+        begin
+            @(negedge clk);
+            A <= a_val;
+            B <= b_val;
+            
+            // Wait 2 cycles for pipeline result
+            @(negedge clk);
+            @(negedge clk);
+            
+            expected_val = calc_dot(a_val, b_val);
+            if (dot_out === expected_val) begin
+                $display("TEST: PASS | Inputs: A=%h, B=%h | Expected: %d | Output: %d", a_val, b_val, expected_val, dot_out);
+            end else begin
+                $display("TEST: FAIL | Inputs: A=%h, B=%h | Expected: %d | Output: %d", a_val, b_val, expected_val, dot_out);
+            end
         end
     endtask
 
     initial begin
-        clk = 0;
-        rst = 1;
-        A = 0;
-        B = 0;
-        
+        rst = 1; A = 0; B = 0;
         repeat(2) @(posedge clk);
         @(negedge clk);
         rst = 0;
 
-        // Sample case
-        set_vector(A, -40, 50, -50, 31, 14, 9, 6, -32);
-        set_vector(B, -1, 30, 41, 14, 37, 50, 22, 29);
-        apply_and_check(A, B);
-
-        // Zero case
-        apply_and_check({N*WIDTH{1'b0}}, {N*WIDTH{1'b0}});
-
-        // Max values
-        set_vector(A, 127, 127, 127, 127, 127, 127, 127, 127);
-        set_vector(B, 127, 127, 127, 127, 127, 127, 127, 127);
-        apply_and_check(A, B);
-
-        // Min values
-        set_vector(A, -128, -128, -128, -128, -128, -128, -128, -128);
-        set_vector(B, -128, -128, -128, -128, -128, -128, -128, -128);
-        apply_and_check(A, B);
-
+        run_test({8'sd(-32), 8'sd6, 8'sd9, 8'sd14, 8'sd31, 8'sd(-50), 8'sd50, 8'sd(-40)}, {8'sd29, 8'sd22, 8'sd50, 8'sd37, 8'sd14, 8'sd41, 8'sd30, 8'sd(-1)});
+        run_test(64'd0, 64'd0);
+        run_test({8{8'h7F}}, {8{8'h7F}});
+        run_test({8{8'h80}}, {8{8'h80}});
+        
         $finish;
     end
 endmodule

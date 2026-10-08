@@ -1,16 +1,14 @@
 # Role and Objective
-You write TEST PLAN NOTES (not Verilog) for a testbench of module seq_detector_0011 (ports: clk, reset (sync, active high), data_in, detected). Clock period 1.1 ns.
+You write TEST PLAN NOTES (not code) for a testbench of module seq_detector_0011 (ports: clk, reset active-high synchronous, data_in, output reg detected). Clock period 1.1ns.
 
 # Mandatory Rules
-1. DUT behaviour: Moore FSM. detected is high during the ONE cycle after the rising edge that samples the last '1' of 0011. Overlapping detections count (00110011 -> two detections).
-2. Alignment: expected_out[i] is the value of detected seen while in[i] is about to be applied. It only depends on bits BEFORE in[i].
-3. Sequence of events: reset=1 and data_in=1 from time 0; clk starts at 0 and toggles every 0.55 ns. Wait for 2 rising edges with reset=1. Then at the NEXT falling edge do step i=0 AND release reset (reset=0) in the same falling edge.
-4. Step i (on every falling edge): FIRST check detected == expected_out[i], THEN drive data_in = in[i]. Never check at a rising edge or just after it.
-5. Vector 1 (16 bits, index 0 first): in  = 0001100110110010 ; expected_out = 0000010001000000. (Detections end at in[4] and in[8], so detected is high at i=5 and i=9.)
-6. Vector 2 (15 bits, applied right after vector 1 without reset): in = 001100110000011 ; expected_out = 000010001000001. (Detections end at in[3], in[7], in[13] so detected is high at i=4, 8, 14.) Explain why no detection happens across the boundary between the vectors.
-7. After the last bit, do one more falling edge: check detected == 0, then finish.
-8. Give a table: index, in bit, expected out, for both vectors. Re-verify each expected 1 by finding the 0011 window.
-9. Tell the testbench writer: use reg [0:15] / reg [0:14] constants so that bit index i is the left-most character first; for-loops with a fixed count (no wait loops, so no timeout needed); one $finish at the end; print one line per check 'TEST: PASS | Inputs: ... | Expected: ... | Output: ...' or the same with FAIL; the words PASS/FAIL must appear nowhere else (also not in lower case, e.g. no '0 failures').
+1. Facts: detected is a Moore output, high for ONE cycle after the rising edge that samples the last '1' of 0011. Overlap is detected (00110011 -> two detections).
+2. Sample: in  = 0 0 0 1 1 0 0 1 1 0 1 1 0 0 1 0 (index 0..15, first char is index 0); expected out = 0 0 0 0 0 1 0 0 0 1 0 0 0 0 0 0. out[i] is the value of detected while in[i] is applied (it reflects only bits sampled before in[i]). Copy these two vectors into the notes with their indexes.
+3. Reset schedule: clk starts 0, reset=1 and data_in=1 at time 0 (data_in=1 keeps the FSM in the idle state). Keep reset high for 2 rising edges, release reset on a falling edge, keep data_in=1 until the next falling edge.
+4. Check schedule: for i=0..15, on EACH falling edge: first check detected == out[i], then drive data_in = in[i]. Never check at a rising edge or just after it.
+5. Say which Verilog-2001 storage to use: reg [0:15] in_bits = 16'b0001100110110010 and reg [0:15] exp_bits = 16'b0000010001000000 (ascending range, so in_bits[i] is the i-th character). Use !== for comparisons.
+6. Print format: one line per check: 'TEST: PASS | Inputs: data_in=<v> idx=<i> | Expected: <e> | Output: <o>' or the same with FAIL. No other text may contain the words pass/fail in any case. $finish once at the end after one extra falling edge.
+7. No wait loops exist, so no timeout is needed. No `timescale. No SystemVerilog.
 
 # Output Format
-Output ONLY the plain-text notes (short numbered list and the tables). No Verilog code, no markdown fences.
+Output ONLY the plain-text notes (short numbered list plus the table of i, in[i], expected out[i]). No markdown fences, no code.

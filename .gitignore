@@ -10,6 +10,8 @@ __pycache__/
 scripts/part*/*/runs/
 scripts/part1/**/sim_out
 *.log
+# ...but keep the logs of the recorded rescue runs (console.log is what show_rescue.py replays)
+!scripts/rescue/runs/**/*.log
 
 # Local development archive and reference repositories
 scripts/part2/_dev_archive/

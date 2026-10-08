@@ -11,28 +11,31 @@ module dot_product #(
     output reg signed [2*WIDTH+3:0] dot_out
 );
 
-    reg signed [2*WIDTH-1:0] mult_stage [0:N-1];
-    reg signed [2*WIDTH+3:0] sum_tmp;
+    reg signed [2*WIDTH-1:0] products_reg [0:N-1];
+    reg signed [2*WIDTH+3:0] sum_comb;
     integer i;
 
     always @(posedge clk) begin
         if (rst) begin
             for (i = 0; i < N; i = i + 1) begin
-                mult_stage[i] <= {(2*WIDTH){1'b0}};
+                products_reg[i] <= 0;
             end
-            dot_out <= {(2*WIDTH+4){1'b0}};
+            dot_out <= 0;
         end else begin
-            // Stage 1: Multiplication
+            // Stage 1: Register products
             for (i = 0; i < N; i = i + 1) begin
-                mult_stage[i] <= $signed(A[i*WIDTH +: WIDTH]) * $signed(B[i*WIDTH +: WIDTH]);
+                products_reg[i] <= $signed(A[i*WIDTH +: WIDTH]) * $signed(B[i*WIDTH +: WIDTH]);
             end
+            // Stage 2: Register output with summed products
+            dot_out <= sum_comb;
+        end
+    end
 
-            // Stage 2: Summation
-            sum_tmp = { (2*WIDTH+4){1'b0} };
-            for (i = 0; i < N; i = i + 1) begin
-                sum_tmp = sum_tmp + mult_stage[i];
-            end
-            dot_out <= sum_tmp;
+    // Combinatorial summation logic for Stage 2
+    always @(*) begin
+        sum_comb = 0;
+        for (i = 0; i < N; i = i + 1) begin
+            sum_comb = sum_comb + products_reg[i];
         end
     end
 

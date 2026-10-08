@@ -10,10 +10,11 @@ Hands-on material for the VLSI-SoC 2026 tutorial on **agentic AI for Electronic 
 
 - [Prerequisites](#prerequisites)
 - [Setup](#setup)
-  - [1. Build the Docker image](#1-build-the-docker-image)
-  - [2. Run the container](#2-run-the-container)
-  - [3. Open a second terminal](#3-open-a-second-terminal-optional)
-  - [Alternative: local install (no Docker)](#alternative-local-install-no-docker)
+  - [Option A: Pull the prebuilt Docker image (recommended)](#option-a-pull-the-prebuilt-docker-image-recommended)
+  - [Option B: Build the image from the Dockerfile](#option-b-build-the-image-from-the-dockerfile)
+  - [Run the container](#run-the-container)
+  - [Open a second terminal](#open-a-second-terminal-optional)
+  - [Option C: Install the tools locally (no Docker)](#option-c-install-the-tools-locally-no-docker)
 - [What is in the image](#what-is-in-the-image)
 - [Repository structure](#repository-structure)
 - [Configuring the agent](#configuring-the-agent)
@@ -29,14 +30,40 @@ Hands-on material for the VLSI-SoC 2026 tutorial on **agentic AI for Electronic 
 
 ## Prerequisites
 
-- [Docker](https://docs.docker.com/get-docker/) installed and running
+- [Docker](https://docs.docker.com/get-docker/) installed and running (not needed for option C)
 - Access to an LLM, either a hosted API (you will need an API key) or a local model served by Ollama (already included in the image)
-- Enough disk space, memory and time for the first build: it builds OpenROAD (with Bazel) and Yosys from source, and clones OpenROAD-flow-scripts
+- Free disk space for the image (it is large: OpenROAD, Yosys, KLayout and OpenROAD-flow-scripts). Building it yourself (option B) or installing locally (option C) also needs about 40 GB of disk, 16 GB of RAM and 1–2 hours
 - Basic EDA knowledge. No AI expertise is required!
 
 ## Setup
 
-### 1. Build the Docker image
+There are three ways to get the environment. Pick the first one that works for you:
+
+| | Option | Time | When |
+| --- | --- | --- | --- |
+| **A** | [Pull the prebuilt Docker image](#option-a-pull-the-prebuilt-docker-image-recommended) | download only | **Recommended** on x86-64 (Windows, Linux, Intel Mac) |
+| **B** | [Build the image from the Dockerfile](#option-b-build-the-image-from-the-dockerfile) | 1–2 hours | ARM (Apple Silicon), or if you want to build it yourself |
+| **C** | [Install the tools locally](#option-c-install-the-tools-locally-no-docker) | 1–2 hours | No Docker (Ubuntu 22/24/26, macOS best effort) |
+
+### Option A: Pull the prebuilt Docker image (recommended)
+
+The image is on Docker Hub: [`kostasvarak/vlsi-soc26-ai`](https://hub.docker.com/r/kostasvarak/vlsi-soc26-ai).
+It is the image of the `Dockerfile`, already built.
+
+```bash
+docker pull --platform linux/amd64 kostasvarak/vlsi-soc26-ai:latest
+docker tag kostasvarak/vlsi-soc26-ai:latest vlsi-soc26-ai
+```
+
+The `docker tag` gives it the short name `vlsi-soc26-ai`, so every command in this README works
+unchanged. Then go to [Run the container](#run-the-container).
+
+> The prebuilt image is for x86-64 (amd64). On Apple Silicon or other ARM machines, use option B
+> with `Dockerfile.arm64`. Docker Desktop can run the x86 image under emulation, but OpenROAD is
+> then several times slower.
+
+### Option B: Build the image from the Dockerfile
+
 
 From the root of this repository (where the `Dockerfile` is):
 
@@ -46,15 +73,34 @@ From the root of this repository (where the `Dockerfile` is):
 docker build --platform linux/amd64 -t vlsi-soc26-ai .
 ```
 
-**Linux / macOS:**
+**Linux / macOS (Intel):**
 
 ```bash
 docker build -t vlsi-soc26-ai .
 ```
 
-The first build takes a long time (OpenROAD and Yosys are built from source) and needs plenty of RAM. You only build it once.
+**ARM: Apple Silicon Macs (M1–M4), ARM Linux (Graviton, Ampere, ...):**
 
-### 2. Run the container
+```bash
+docker build -f Dockerfile.arm64 -t vlsi-soc26-ai .
+# less than 16 GB of RAM for Docker? build OpenROAD with fewer parallel jobs:
+docker build -f Dockerfile.arm64 --build-arg BAZEL_JOBS=2 -t vlsi-soc26-ai .
+```
+
+`Dockerfile.arm64` builds the same environment natively for ARM. Only two things differ:
+- **Bazel:** the ARM build of bazelisk.
+- **KLayout:** built from source, since there is no ARM package; if that build fails, Ubuntu's package is used.
+
+The image has the same name, so every other command in this README is unchanged. Don't build
+the x86 `Dockerfile` on an ARM machine (or the reverse) with `--platform`: emulation makes the
+OpenROAD build take many hours.
+
+The build takes 1–2 hours and plenty of RAM (OpenROAD and Yosys are built from source). You only build it once.
+
+### Run the container
+
+This is the same for options A and B.
+
 
 **Windows (PowerShell):**
 
@@ -78,7 +124,8 @@ cd /home/scripts/part1
 
 > `--rm` deletes the container when you exit. Your work is safe as long as it lives in the mounted `scripts/` folder.
 
-### 3. Open a second terminal (optional)
+### Open a second terminal (optional)
+
 
 To get another shell in the **same** running container without stopping it, give the container a name when you start it:
 
@@ -94,7 +141,8 @@ docker exec -it vlsi bash
 
 Closing the second shell does not affect the first. If you exit the original session, the container stops and all attached shells close.
 
-### Alternative: local install (no Docker)
+### Option C: Install the tools locally (no Docker)
+
 
 If you prefer to run the tutorial on your own machine, `install/` has scripts that install the
 same tools as the Docker image under one folder (default `~/eda`, no files in `/home`):
@@ -237,6 +285,7 @@ variable (`api_key: "$GEMINI_API_KEY"`), and one script sets these variables for
 ```
 .
 ├── Dockerfile
+├── Dockerfile.arm64       # the same image for ARM (Apple Silicon, ARM Linux)
 ├── README.md
 ├── install/               # local install without Docker (Ubuntu, macOS)
 └── scripts/

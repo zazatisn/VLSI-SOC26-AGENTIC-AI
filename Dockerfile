@@ -1,3 +1,11 @@
+# VLSI-SoC 2026 "Agentic AI in EDA" environment (x86-64)
+#   x86-64: the image of this Dockerfile is on Docker Hub, already built (recommended, no build needed):
+#     docker pull --platform linux/amd64 kostasvarak/vlsi-soc26-ai:latest
+#     docker tag kostasvarak/vlsi-soc26-ai:latest vlsi-soc26-ai
+#   Build it yourself (1-2 hours):
+#     docker build -t vlsi-soc26-ai .
+#   ARM (Apple Silicon): use Dockerfile.arm64
+
 FROM ubuntu:22.04
 ENV DEBIAN_FRONTEND=noninteractive
 ARG APT_COMMAND="apt-get -o Acquire::Retries=3 -y"

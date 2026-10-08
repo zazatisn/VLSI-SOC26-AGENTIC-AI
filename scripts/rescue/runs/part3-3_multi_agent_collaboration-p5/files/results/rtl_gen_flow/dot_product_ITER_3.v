@@ -11,32 +11,33 @@ module dot_product #(
     output reg signed [2*WIDTH+3:0] dot_out
 );
 
-    reg signed [2*WIDTH-1:0] products_reg [0:N-1];
     integer i;
+    reg signed [2*WIDTH-1:0] products [N-1:0];
+    reg signed [2*WIDTH+3:0] sum_reg;
 
-    // Intermediate sum signal for pipeline stage transition
-    reg signed [2*WIDTH+3:0] sum_staged;
-
+    // Stage 1: Capture products in registers at first clock edge
     always @(posedge clk) begin
         if (rst) begin
             for (i = 0; i < N; i = i + 1) begin
-                products_reg[i] <= 0;
+                products[i] <= {2*WIDTH{1'b0}};
             end
-            sum_staged <= 0;
-            dot_out <= 0;
         end else begin
-            // Stage 1: Multiplication
             for (i = 0; i < N; i = i + 1) begin
-                products_reg[i] <= $signed(A[i*WIDTH +: WIDTH]) * $signed(B[i*WIDTH +: WIDTH]);
+                products[i] <= $signed(A[i*WIDTH +: WIDTH]) * $signed(B[i*WIDTH +: WIDTH]);
             end
+        end
+    end
 
-            // Stage 2: Summation
-            // Explicitly calculate sum in sequential block for clean 2-cycle pipeline
-            sum_staged = 0;
+    // Stage 2: Sum the registered products and capture in dot_out
+    always @(posedge clk) begin
+        if (rst) begin
+            dot_out <= {2*WIDTH+4{1'b0}};
+        end else begin
+            sum_reg = {2*WIDTH+4{1'b0}};
             for (i = 0; i < N; i = i + 1) begin
-                sum_staged = sum_staged + products_reg[i];
+                sum_reg = sum_reg + products[i];
             end
-            dot_out <= sum_staged;
+            dot_out <= sum_reg;
         end
     end
 

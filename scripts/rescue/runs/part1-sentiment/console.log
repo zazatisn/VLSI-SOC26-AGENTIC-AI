@@ -1,0 +1,160 @@
+--> Initializing DSPy LM profile: 'ollama-llama3.1' (ollama_chat/llama3.1)
+
+==================================================
+   EVALUATING: Baseline (Untrained)
+==================================================
+
+[1/6] ✅ PASS
+Sentence:   "Great, another unannounced breaking update right before the weekend."
+Expected:   Negative
+Predicted:  Negative
+Reasoning:  The sentence expresses frustration and disappointment with the timing of the update, implying that it is inconvenient for the user. The use of the phrase "unannounced breaking update" suggests a negative tone.
+Latency:    3.94s
+Tokens:     In: 0 | Out: 0 | Total: 0
+Throughput: 0.0 TPM (0.00 TPS)
+--------------------------------------------------
+
+[2/6] ❌ FAIL
+Sentence:   "I can't say I'm displeased with how smoothly the migration went."
+Expected:   Positive
+Predicted:  Neutral
+Reasoning:  The sentence expresses a neutral sentiment because it uses the phrase "I can't say" which implies a lack of strong emotion, and the word "displeased" is a mild negative emotion, but it's not strong enough to classify the overall sentiment as negative. The phrase "smoothly" is also a positive word, but it's not enough to tip the balance towards a positive sentiment.
+Latency:    0.03s
+Tokens:     In: 0 | Out: 0 | Total: 0
+Throughput: 0.0 TPM (0.00 TPS)
+--------------------------------------------------
+
+[3/6] ❌ FAIL
+Sentence:   "The setup was an absolute nightmare, but it works like a charm now."
+Expected:   Positive
+Predicted:  Negative
+Reasoning:  The sentence contains both a negative phrase ("absolute nightmare") and a positive phrase ("works like a charm"), indicating a mixed sentiment. However, the negative phrase is more prominent and emphasizes the difficulty experienced, suggesting that the overall sentiment is more negative than positive.
+Latency:    0.04s
+Tokens:     In: 0 | Out: 0 | Total: 0
+Throughput: 0.0 TPM (0.00 TPS)
+--------------------------------------------------
+
+[4/6] ✅ PASS
+Sentence:   "I'd highly recommend this app if you enjoy waiting five minutes for a page to load."
+Expected:   Negative
+Predicted:  Negative
+Reasoning:  The sentence contains a recommendation, but the tone is sarcastic and critical of the app's performance, specifically its slow loading time. The phrase "if you enjoy waiting" implies that the speaker does not enjoy waiting and is highlighting a significant drawback.
+Latency:    0.04s
+Tokens:     In: 0 | Out: 0 | Total: 0
+Throughput: 0.0 TPM (0.00 TPS)
+--------------------------------------------------
+
+[5/6] ✅ PASS
+Sentence:   "Ever since the patch, my laptop fan sounds like a jet engine taking off."
+Expected:   Negative
+Predicted:  Negative
+Reasoning:  The sentence expresses a negative sentiment as it describes a loud and unpleasant noise, implying that the patch has caused a problem with the laptop's fan.
+Latency:    0.04s
+Tokens:     In: 0 | Out: 0 | Total: 0
+Throughput: 0.0 TPM (0.00 TPS)
+--------------------------------------------------
+
+[6/6] ✅ PASS
+Sentence:   "The app requires 4GB of RAM and Python 3.10 to operate."
+Expected:   Neutral
+Predicted:  Neutral
+Reasoning:  The sentence is neutral because it states a requirement for the app to operate, without expressing any opinion or emotion.
+Latency:    0.04s
+Tokens:     In: 0 | Out: 0 | Total: 0
+Throughput: 0.0 TPM (0.00 TPS)
+--------------------------------------------------
+
+>>> Final Accuracy (Baseline (Untrained)): 4/6 (66.7%)
+>>> Phase Performance (Baseline (Untrained)): 0 tokens in 4.13s | Avg Throughput: 0.0 TPM (0.00 TPS)
+
+Loaded 12 training examples from trainset.json
+Compiling pipeline with BootstrapFewShot...
+
+  0%|          | 0/12 [00:00<?, ?it/s]
+ 25%|██▌       | 3/12 [00:00<00:00, 27.36it/s]
+ 33%|███▎      | 4/12 [00:00<00:00, 29.59it/s]
+Bootstrapped 3 full traces after 4 examples for up to 1 rounds, amounting to 4 attempts.
+Compilation complete in 0.15s!
+Compilation Tokens: 0 | Throughput: 0.0 TPM (0.00 TPS)
+
+
+==================================================
+   EVALUATING: Compiled (DSPy Optimized)
+==================================================
+
+[1/6] ✅ PASS
+Sentence:   "Great, another unannounced breaking update right before the weekend."
+Expected:   Negative
+Predicted:  Negative
+Reasoning:  The user is expressing frustration and disappointment with the timing of the update, implying that it is inconvenient and unexpected, similar to the previous instance.
+Latency:    0.05s
+Tokens:     In: 0 | Out: 0 | Total: 0
+Throughput: 0.0 TPM (0.00 TPS)
+--------------------------------------------------
+
+[2/6] ❌ FAIL
+Sentence:   "I can't say I'm displeased with how smoothly the migration went."
+Expected:   Positive
+Predicted:  Neutral
+Reasoning:  The user is expressing a neutral sentiment, using the phrase "I can't say" to indicate a lack of strong emotions, and stating that the migration went smoothly, which is a positive aspect, but they are not enthusiastic about it.
+Latency:    0.05s
+Tokens:     In: 0 | Out: 0 | Total: 0
+Throughput: 0.0 TPM (0.00 TPS)
+--------------------------------------------------
+
+[3/6] ✅ PASS
+Sentence:   "The setup was an absolute nightmare, but it works like a charm now."
+Expected:   Positive
+Predicted:  Positive
+Reasoning:  The user had a very negative experience with the setup, but their opinion changed after they got accustomed to using the tool, indicating a significant improvement in their experience.
+Latency:    0.04s
+Tokens:     In: 0 | Out: 0 | Total: 0
+Throughput: 0.0 TPM (0.00 TPS)
+--------------------------------------------------
+
+[4/6] ✅ PASS
+Sentence:   "I'd highly recommend this app if you enjoy waiting five minutes for a page to load."
+Expected:   Negative
+Predicted:  Negative
+Reasoning:  The user is making a recommendation, but the tone is sarcastic, implying that the app's performance is subpar, specifically mentioning a slow loading time.
+Latency:    0.04s
+Tokens:     In: 0 | Out: 0 | Total: 0
+Throughput: 0.0 TPM (0.00 TPS)
+--------------------------------------------------
+
+[5/6] ✅ PASS
+Sentence:   "Ever since the patch, my laptop fan sounds like a jet engine taking off."
+Expected:   Negative
+Predicted:  Negative
+Reasoning:  The user is expressing frustration and annoyance with the excessive noise caused by the laptop fan, implying that the patch has had a negative impact on their device's performance.
+Latency:    0.04s
+Tokens:     In: 0 | Out: 0 | Total: 0
+Throughput: 0.0 TPM (0.00 TPS)
+--------------------------------------------------
+
+[6/6] ✅ PASS
+Sentence:   "The app requires 4GB of RAM and Python 3.10 to operate."
+Expected:   Neutral
+Predicted:  Neutral
+Reasoning:  The statement is a factual description of the system requirements for the app, without any emotional tone or opinion.
+Latency:    0.04s
+Tokens:     In: 0 | Out: 0 | Total: 0
+Throughput: 0.0 TPM (0.00 TPS)
+--------------------------------------------------
+
+>>> Final Accuracy (Compiled (DSPy Optimized)): 5/6 (83.3%)
+>>> Phase Performance (Compiled (DSPy Optimized)): 0 tokens in 0.27s | Avg Throughput: 0.0 TPM (0.00 TPS)
+
+=================================================================
+              EVALUATION, TOKENS & THROUGHPUT SUMMARY             
+=================================================================
+Untrained Baseline Accuracy: 66.7%
+DSPy Compiled Accuracy:     83.3%
+Net Accuracy Improvement:   +16.7%
+-----------------------------------------------------------------
+Baseline Eval:        0 tokens |   4.13s |       0.0 TPM ( 0.00 TPS)
+Compilation:          0 tokens |   0.15s |       0.0 TPM ( 0.00 TPS)
+Compiled Eval:        0 tokens |   0.27s |       0.0 TPM ( 0.00 TPS)
+-----------------------------------------------------------------
+SCRIPT TOTAL:         0 tokens |   4.55s |       0.0 TPM ( 0.00 TPS)
+=================================================================

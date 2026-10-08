@@ -6,42 +6,25 @@ module seq_detector_0011(
     input data_in,
     output reg detected
 );
-
-    localparam [2:0] IDLE  = 3'b000,
-                     S0    = 3'b001,
-                     S00   = 3'b010,
-                     S001  = 3'b011,
-                     S0011 = 3'b100;
-
+    localparam IDLE = 3'd0, S0 = 3'd1, S00 = 3'd2, S001 = 3'd3, SUCCESS = 3'd4;
     reg [2:0] state, next_state;
 
     always @(posedge clk) begin
-        if (reset) begin
-            state <= IDLE;
-        end else begin
-            state <= next_state;
-        end
+        if (reset) state <= IDLE;
+        else state <= next_state;
     end
 
     always @(*) begin
         next_state = state;
         detected = 0;
         case (state)
-            IDLE: begin
-                next_state = (data_in) ? IDLE : S0;
-            end
-            S0: begin
-                next_state = (data_in) ? IDLE : S00;
-            end
-            S00: begin
-                next_state = (data_in) ? S001 : S00;
-            end
-            S001: begin
-                next_state = (data_in) ? S0011 : S0;
-                if (next_state == S0011) detected = 1;
-            end
-            S0011: begin
-                next_state = (data_in) ? S001 : S0;
+            IDLE: next_state = (data_in == 0) ? S0 : IDLE;
+            S0:   next_state = (data_in == 0) ? S00 : IDLE;
+            S00:  next_state = (data_in == 0) ? S00 : S001;
+            S001: next_state = (data_in == 0) ? S0 : SUCCESS;
+            SUCCESS: begin
+                detected = 1;
+                next_state = (data_in == 0) ? S0 : IDLE;
             end
             default: next_state = IDLE;
         endcase

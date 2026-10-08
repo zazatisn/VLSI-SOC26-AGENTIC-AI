@@ -13,7 +13,7 @@ export VERILOG_FILES = $(sort $(wildcard $(DESIGN_HOME)/src/$(DESIGN_NAME)/*.v))
 export SDC_FILE = $(DESIGN_HOME)/$(PLATFORM)/$(DESIGN_NAME)/constraint.sdc
 
 # Core area settings
-export CORE_UTILIZATION  = 20
+export CORE_UTILIZATION  = 10
 export CORE_ASPECT_RATIO = 1.0
 export CORE_MARGIN       = 1.0
 

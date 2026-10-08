@@ -18,6 +18,9 @@ recorded line by line WITH timing, and its results are copied to rescue/runs/<id
 
 Run it in the Docker container (or a local install) with your API keys loaded, from scripts/rescue/.
 Previous results of the same run+design are removed first (they are regenerated); --no-clean keeps them.
+Every recording uses a FRESH DSPy cache, so the models really answer and the tokens are real
+(--use-cache reuses your normal cache instead). A rescue should be a run that works: --tries 3
+re-runs a failed entry up to 3 times and keeps the first success (all attempts are kept as <id>.tryN).
 """
 import argparse
 import json
@@ -26,6 +29,7 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 import time
 from datetime import datetime
 from pathlib import Path
@@ -66,10 +70,11 @@ def plan(e):
         folder, cmd = PART1[e["task"]]
         cwd = SCRIPTS / folder / variant
         cmd = cmd + ([e["design"]] if e.get("design") else [])
-        collect = []
+        collect, aside = [], []
         if e.get("design"):
             collect.append((cwd / e["design"] / "golden.tb", "golden.tb"))
-        return cwd, cmd, collect, []
+            aside.append(cwd / e["design"] / "golden.tb")   # the scripts skip everything when it exists
+        return cwd, cmd, collect, [], aside
 
     part, run, design = e["part"], e["run"], e["design"]
     cwd = SCRIPTS / f"part{part}" / variant
@@ -90,11 +95,15 @@ def plan(e):
         rd = cwd / paths["run_dir"] / stem
         collect = [(rd, "run")]
         clean = [rd]
-    return cwd, cmd, collect, clean
+    return cwd, cmd, collect, clean, []
 
 
-def record(cmd, cwd, out_dir):
+def record(cmd, cwd, out_dir, use_cache=False):
     env = dict(os.environ, PYTHONUNBUFFERED="1")
+    cache_dir = None
+    if not use_cache:   # a fresh, empty DSPy cache: every answer comes from the model, tokens are real
+        cache_dir = tempfile.mkdtemp(prefix="dspy_cache_rescue_")
+        env["DSPY_CACHEDIR"] = cache_dir
     t0 = time.time()
     with open(out_dir / "console.log", "w") as log, open(out_dir / "console.timing", "w") as tim:
         p = subprocess.Popen(cmd, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
@@ -104,6 +113,8 @@ def record(cmd, cwd, out_dir):
             log.write(line)
             tim.write(f"{time.time() - t0:.3f}\n")
         p.wait()
+    if cache_dir:
+        shutil.rmtree(cache_dir, ignore_errors=True)
     return p.returncode, time.time() - t0
 
 
@@ -126,11 +137,13 @@ def summarize(console):
     if st:
         info["tokens_total"] = int(st[-1])
     # final verdict lines of the flows (intermediate "Success!" lines of single steps do not count)
-    if re.search(r"❌ Failure!", text):
+    if re.search(r"❌ Failure!|Reached max iterations|no orchestrator interventions left|Traceback \(most recent", text):
         info["status"] = "failed"
     elif re.search(r"Agentic flow completed successfully|The team reached a scored layout|"
                    r"SUCCESS! Exactly 1 mutant isolated", text):
         info["status"] = "success"
+    if "(cached)" in text:
+        info["cached_answers"] = len(re.findall(r"\(cached\)", text))
     return info
 
 
@@ -141,11 +154,8 @@ def git_commit():
         return ""
 
 
-def do_entry(e, a):
-    rid = entry_id(e)
-    cwd, cmd, collect, clean = plan(e)
-    out = RUNS / rid
-    print(f"\n{B}{C}=== Recording {rid} ==={R}\n{B}cd {cwd.relative_to(SCRIPTS.parent)} && {' '.join(cmd)}{R}\n")
+def record_once(e, a, out):
+    cwd, cmd, collect, clean, aside = plan(e)
     if out.exists():
         shutil.rmtree(out)
     (out / "files").mkdir(parents=True)
@@ -153,19 +163,55 @@ def do_entry(e, a):
         for c in clean:
             if c.exists():
                 shutil.rmtree(c)
-    rc, secs = record(cmd, cwd, out)
+    moved = []
+    for f in aside:
+        if f.exists():
+            bak = f.with_name(f.name + ".rescue_bak")
+            f.replace(bak)
+            moved.append((f, bak))
+    try:
+        rc, secs = record(cmd, cwd, out, use_cache=a.use_cache)
+    finally:
+        for f, bak in moved:          # put the old file back if the run did not write a new one
+            if f.exists():
+                bak.unlink()
+            else:
+                bak.replace(f)
     for src, name in collect:
         if src.is_dir():
             shutil.copytree(src, out / "files" / name, dirs_exist_ok=True)
         elif src.exists():
             shutil.copy(src, out / "files" / name)
-    meta = {"id": rid, "entry": e, "cwd": str(cwd.relative_to(SCRIPTS)), "command": cmd,
+    meta = {"id": out.name, "entry": e, "cwd": str(cwd.relative_to(SCRIPTS)), "command": cmd,
             "recorded": datetime.now().isoformat(timespec="seconds"), "duration_s": round(secs, 1),
-            "exit_code": rc, "git_commit": git_commit()}
+            "exit_code": rc, "git_commit": git_commit(), "fresh_cache": not a.use_cache}
     meta.update(summarize((out / "console.log").read_text(errors="replace")))
     (out / "meta.json").write_text(json.dumps(meta, indent=2) + "\n")
-    col = G if rc == 0 else RD
-    print(f"\n{col}{B}Recorded {rid}: exit {rc}, {secs:.0f}s{R}  -> rescue/runs/{rid}/")
+    return meta
+
+
+def do_entry(e, a):
+    rid = entry_id(e)
+    cwd, cmd, *_ = plan(e)
+    out = RUNS / rid
+    meta = None
+    for t in range(1, a.tries + 1):
+        tag = f" (try {t}/{a.tries})" if a.tries > 1 else ""
+        print(f"\n{B}{C}=== Recording {rid}{tag} ==={R}\n{B}cd {cwd.relative_to(SCRIPTS.parent)} && {' '.join(cmd)}{R}\n")
+        meta = record_once(e, a, out)
+        ok = meta["exit_code"] == 0 and meta.get("status") != "failed"
+        col = G if ok else RD
+        print(f"\n{col}{B}Recorded {rid}: exit {meta['exit_code']}, {meta['duration_s']:.0f}s, "
+              f"status {meta.get('status', '?')}{R}  -> rescue/runs/{rid}/")
+        if meta.get("cached_answers"):
+            print(f"{Y}Warning: {meta['cached_answers']} answers came from a cache: the token counts of this recording are not real.{R}")
+        if ok or t == a.tries:
+            break
+        keep = RUNS / f"{rid}.try{t}"          # keep the failed attempt, try again
+        if keep.exists():
+            shutil.rmtree(keep)
+        out.rename(keep)
+        print(f"{Y}Failed: kept as rescue/runs/{keep.name}, trying again ...{R}")
     return meta
 
 
@@ -180,13 +226,16 @@ def main():
     ap.add_argument("--no-clean", action="store_true", help="keep previous results of the same run and design")
     ap.add_argument("--list", action="store_true", help="show the presets and the recorded runs")
     ap.add_argument("--skip-existing", action="store_true", help="with --preset: do not re-record runs already recorded")
+    ap.add_argument("--tries", type=int, default=1, help="re-run a failed entry up to N times, keep the first success")
+    ap.add_argument("--only-failed", action="store_true", help="with --preset: re-record only the runs whose recording failed")
+    ap.add_argument("--use-cache", action="store_true", help="use your normal DSPy cache (faster, but cached answers count 0 tokens)")
     a = ap.parse_args()
 
     presets = yaml.safe_load((HERE / "presets.yaml").read_text())
     if a.list:
         for name, entries in presets.items():
             print(f"{B}{name}{R}: " + ", ".join(entry_id(e) for e in entries))
-        rec = sorted(p.name for p in RUNS.glob("*") if (p / "meta.json").exists()) if RUNS.exists() else []
+        rec = sorted(p.name for p in RUNS.glob("*") if (p / "meta.json").exists() and ".try" not in p.name) if RUNS.exists() else []
         print(f"\n{B}Recorded:{R} " + (", ".join(rec) if rec else "none yet"))
         return
 
@@ -213,9 +262,17 @@ def main():
 
     results = []
     for e in entries:
-        if a.skip_existing and (RUNS / entry_id(e) / "meta.json").exists():
+        mf = RUNS / entry_id(e) / "meta.json"
+        if a.skip_existing and mf.exists():
             print(f"{Y}{entry_id(e)}: already recorded, skipped{R}")
             continue
+        if a.only_failed and mf.exists():
+            old = json.loads(mf.read_text())
+            con = mf.parent / "console.log"     # re-read the console: older recordings have no status
+            old.update(summarize(con.read_text(errors="replace")) if con.exists() else {"status": "failed"})
+            if old["exit_code"] == 0 and old.get("status") != "failed" and not old.get("cached_answers"):
+                print(f"{Y}{entry_id(e)}: already recorded and OK, skipped{R}")
+                continue
         try:
             results.append(do_entry(e, a))
         except KeyboardInterrupt:

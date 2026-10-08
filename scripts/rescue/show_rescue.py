@@ -33,7 +33,12 @@ def find(key):
     if exact:
         return exact[0]
     parts = key.lower().split("-")
-    hits = [p for p in runs if all(x in p.name.lower() for x in parts)]
+    tokens = lambda p: set(re.split(r"[-_.]", p.name.lower()))
+    hits = [p for p in runs if all(x in tokens(p) for x in parts)]        # exact parts first: p1 is not p11
+    if not hits:
+        hits = [p for p in runs if all(x in p.name.lower() for x in parts)]
+    if ".try" not in key:                       # prefer the final recording over the kept failed attempts
+        hits = [p for p in hits if ".try" not in p.name] or hits
     if len(hits) == 1:
         return hits[0]
     if not hits:
@@ -50,13 +55,15 @@ def cmd_list(_):
     if not runs:
         print("No recorded runs yet. Record them with:  python3 make_rescue.py --preset tutorial")
         return
-    print(f"{B}{'id':52} {'recorded':19} {'time':>6}  {'status':8} {'score':>6} {'tokens':>8}{R}")
+    print(f"{B}{'id':52} {'recorded':19} {'time':>6}  {'status':16} {'score':>6} {'tokens':>8}{R}")
     for p in runs:
         m = meta(p)
         st = m.get("status", "exit 0" if m["exit_code"] == 0 else f"exit {m['exit_code']}")
-        col = G if st in ("success", "exit 0") else RD
+        if m.get("cached_answers"):
+            st += " (cache)"
+        col = G if st in ("success", "exit 0") else (Y if "cache" in st and "failed" not in st else RD)
         score = m.get("score", m.get("compiled_accuracy", m.get("mutant_result", "")))
-        print(f"{p.name:52} {m['recorded'].replace('T', ' '):19} {m['duration_s']:>5.0f}s  {col}{st:8}{R} "
+        print(f"{p.name:52} {m['recorded'].replace('T', ' '):19} {m['duration_s']:>5.0f}s  {col}{st:16}{R} "
               f"{str(score):>6} {str(m.get('tokens_total', '')):>8}")
 
 
@@ -133,4 +140,7 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except BrokenPipeError:          # output piped into head/less that closed early
+        sys.stderr.close()

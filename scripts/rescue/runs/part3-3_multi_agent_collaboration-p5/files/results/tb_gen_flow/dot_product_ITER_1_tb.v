@@ -1,22 +1,26 @@
 `timescale 1ns/1ps
 
 module tb_dot_product;
+
     parameter N = 8;
     parameter WIDTH = 8;
-    parameter PERIOD = 4.5;
+    parameter CLK_PERIOD = 4.5;
 
     reg clk;
     reg rst;
-    reg [N*WIDTH-1:0] A;
-    reg [N*WIDTH-1:0] B;
+    reg signed [N*WIDTH-1:0] A;
+    reg signed [N*WIDTH-1:0] B;
     wire signed [2*WIDTH+3:0] dot_out;
 
-    integer i, j, k;
-    reg signed [WIDTH-1:0] A_arr [0:N-1];
-    reg signed [WIDTH-1:0] B_arr [0:N-1];
+    integer i, j;
     reg signed [2*WIDTH+3:0] expected;
+    reg signed [WIDTH-1:0] A_arr[0:N-1];
+    reg signed [WIDTH-1:0] B_arr[0:N-1];
 
-    dot_product #(.N(N), .WIDTH(WIDTH)) dut (
+    dot_product #(
+        .N(N),
+        .WIDTH(WIDTH)
+    ) dut (
         .clk(clk),
         .rst(rst),
         .A(A),
@@ -24,55 +28,77 @@ module tb_dot_product;
         .dot_out(dot_out)
     );
 
-    always #(PERIOD/2) clk = ~clk;
+    initial begin
+        clk = 0;
+        forever #(CLK_PERIOD/2.0) clk = ~clk;
+    end
 
-    task check_case;
-        input [N*WIDTH-1:0] in_a;
-        input [N*WIDTH-1:0] in_b;
-        integer exp_val;
+    function signed [2*WIDTH+3:0] calc_dot;
+        input [N*WIDTH-1:0] a_in;
+        input [N*WIDTH-1:0] b_in;
+        integer k;
+        reg signed [WIDTH-1:0] a_val;
+        reg signed [WIDTH-1:0] b_val;
         begin
-            A = in_a;
-            B = in_b;
-            @(negedge clk);
-            @(negedge clk);
-            
-            exp_val = 0;
+            calc_dot = 0;
             for (k = 0; k < N; k = k + 1) begin
-                exp_val = exp_val + ($signed(in_a[k*WIDTH +: WIDTH]) * $signed(in_b[k*WIDTH +: WIDTH]));
+                a_val = a_in[k*WIDTH +: WIDTH];
+                b_val = b_in[k*WIDTH +: WIDTH];
+                calc_dot = calc_dot + (a_val * b_val);
             end
+        end
+    endfunction
 
-            if (dot_out === exp_val)
-                $display("TEST: PASS | Inputs: A=%h B=%h | Expected: %d | Output: %d", in_a, in_b, exp_val, dot_out);
-            else
-                $display("TEST: FAIL | Inputs: A=%h B=%h | Expected: %d | Output: %d", in_a, in_b, exp_val, dot_out);
+    task check_result;
+        input [N*WIDTH-1:0] a_val;
+        input [N*WIDTH-1:0] b_val;
+        begin
+            expected = calc_dot(a_val, b_val);
+            if (dot_out === expected) begin
+                $display("TEST: PASS | Inputs: A=%h, B=%h | Expected: %d | Output: %d", a_val, b_val, expected, dot_out);
+            end else begin
+                $display("TEST: FAIL | Inputs: A=%h, B=%h | Expected: %d | Output: %d", a_val, b_val, expected, dot_out);
+            end
         end
     endtask
 
     initial begin
-        clk = 0;
         rst = 1;
         A = 0;
         B = 0;
-        repeat(4) @(posedge clk);
-        @(negedge clk);
+        repeat(3) @(negedge clk);
         rst = 0;
 
-        // Spec Sample case
-        A = {8'd(-40), 8'd(50), 8'd(-50), 8'd(31), 8'd(14), 8'd(9), 8'd(6), 8'd(-32)};
-        B = {8'd(-1), 8'd(30), 8'd(41), 8'd(14), 8'd(37), 8'd(50), 8'd(22), 8'd(29)};
+        // Case 1: Spec example
         @(negedge clk);
+        A = {8'd(-32), 8'd6, 8'd9, 8'd14, 8'd31, 8'd(-50), 8'd50, 8'd(-40)};
+        B = {8'd29, 8'd22, 8'd50, 8'd37, 8'd14, 8'd41, 8'd30, 8'd(-1)};
+        
         @(negedge clk);
-        // Result appears
-        $display("TEST: PASS | Inputs: Spec Sample | Expected: 96 | Output: %d", dot_out);
+        // Pipeline slot 1
+        @(negedge clk);
+        // Pipeline slot 2 - Result appears
+        check_result(A, B);
 
-        // Zero case
-        check_case({N*WIDTH{1'b0}}, {N*WIDTH{1'b0}}, 0);
+        // Case 2: Zero inputs
+        @(negedge clk);
+        A = 0; B = 0;
+        repeat(2) @(negedge clk);
+        check_result(A, B);
 
-        // Max values (all 127)
-        check_case({N{8'sd127}}, {N{8'sd127}}, 8 * (127 * 127));
+        // Case 3: Max values
+        @(negedge clk);
+        A = {(N){8'h7F}};
+        B = {(N){8'h7F}};
+        repeat(2) @(negedge clk);
+        check_result(A, B);
 
-        // Min values (all -128)
-        check_case({N{8'sd-128}}, {N{8'sd-128}}, 8 * ((-128) * (-128)));
+        // Case 4: Min values
+        @(negedge clk);
+        A = {(N){8'h80}};
+        B = {(N){8'h80}};
+        repeat(2) @(negedge clk);
+        check_result(A, B);
 
         $finish;
     end

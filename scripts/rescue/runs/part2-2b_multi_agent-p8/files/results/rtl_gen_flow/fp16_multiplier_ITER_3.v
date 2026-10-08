@@ -6,55 +6,62 @@ module fp16_multiplier(
     output reg [15:0] result
 );
 
-    reg sign;
-    reg [4:0] exp_a, exp_b;
-    reg [10:0] mant_a, mant_b;
-    reg [21:0] prod;
-    reg signed [7:0] exp_sum;
-    reg [4:0] res_exp;
-    reg [9:0] res_mant;
-    reg guard, round, sticky;
-    reg round_up;
+    reg        sign;
+    reg [4:0]  exp_a, exp_b, exp_res;
+    reg [10:0] sig_a, sig_b;
+    reg [21:0] product;
+    reg [10:0] norm_mantissa;
+    reg        guard, round, sticky;
+    reg        round_up;
+    reg [10:0] final_mantissa;
+    reg [5:0]  exp_temp;
 
     always @(*) begin
         sign = a[15] ^ b[15];
         exp_a = a[14:10];
         exp_b = b[14:10];
-        mant_a = {1'b1, a[9:0]};
-        mant_b = {1'b1, b[9:0]};
-        
-        if (exp_a == 5'b0 || exp_b == 5'b0) begin
-            result = {sign, 15'b0};
+        sig_a = {1'b1, a[9:0]};
+        sig_b = {1'b1, b[9:0]};
+        product = sig_a * sig_b;
+
+        // Default outputs
+        result = 16'd0;
+
+        if (exp_a == 5'd0 || exp_b == 5'd0) begin
+            result = {sign, 15'd0};
         end else begin
-            exp_sum = exp_a + exp_b - 5'd15;
-            prod = mant_a * mant_b;
-            
-            if (prod[21]) begin
-                res_exp = exp_sum + 1;
-                res_mant = prod[20:11];
-                guard = prod[10];
-                round = prod[9];
-                sticky = |prod[8:0];
+            // Normalization
+            if (product[21]) begin
+                norm_mantissa = product[21:11];
+                guard = product[10];
+                round = product[9];
+                sticky = |product[8:0];
+                exp_temp = exp_a + exp_b - 15'd15 + 1'd1;
             end else begin
-                res_exp = exp_sum;
-                res_mant = prod[19:10];
-                guard = prod[9];
-                round = prod[8];
-                sticky = |prod[7:0];
+                norm_mantissa = product[20:10];
+                guard = product[9];
+                round = product[8];
+                sticky = |product[7:0];
+                exp_temp = exp_a + exp_b - 15'd15;
             end
 
-            round_up = guard && (round || sticky || res_mant[0]);
-            
-            if (round_up) begin
-                {res_mant, res_exp} = {res_mant, res_exp} + 1'b1;
+            // Rounding (Nearest even)
+            round_up = guard && (round || sticky || norm_mantissa[0]);
+            final_mantissa = norm_mantissa + round_up;
+
+            // Handle rounding carry
+            if (final_mantissa[10]) begin
+                exp_temp = exp_temp + 1'd1;
+                final_mantissa = {1'b1, 10'd0};
             end
 
-            if ($signed(res_exp) >= 31) begin
-                result = {sign, 5'b11111, 10'b0};
-            end else if ($signed(res_exp) <= 0) begin
-                result = {sign, 15'b0};
+            // Exponent overflow/underflow
+            if (exp_temp >= 6'd31) begin
+                result = {sign, 5'd31, 10'd0};
+            end else if ($signed(exp_temp) <= 0) begin
+                result = {sign, 15'd0};
             end else begin
-                result = {sign, res_exp, res_mant};
+                result = {sign, exp_temp[4:0], final_mantissa[9:0]};
             end
         end
     end

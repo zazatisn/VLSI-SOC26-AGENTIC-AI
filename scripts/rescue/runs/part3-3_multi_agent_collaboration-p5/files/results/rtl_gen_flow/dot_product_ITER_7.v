@@ -17,23 +17,23 @@ module dot_product #(
     always @(posedge clk) begin
         if (rst) begin
             for (i = 0; i < N; i = i + 1) begin
-                products[i] <= {(2*WIDTH){1'b0}};
+                products[i] <= 0;
             end
-            dot_out <= {(2*WIDTH+4){1'b0}};
+            dot_out <= 0;
         end else begin
-            // Stage 1: Multiplication and store in pipeline registers
+            // Stage 1: Register products
             for (i = 0; i < N; i = i + 1) begin
                 products[i] <= $signed(A[i*WIDTH +: WIDTH]) * $signed(B[i*WIDTH +: WIDTH]);
             end
 
-            // Stage 2: Summation of the registered products
+            // Stage 2: Sum products and register output
             begin
-                reg signed [2*WIDTH+3:0] sum_acc;
-                sum_acc = 0;
+                reg signed [2*WIDTH+3:0] sum_temp;
+                sum_temp = 0;
                 for (i = 0; i < N; i = i + 1) begin
-                    sum_acc = sum_acc + products[i];
+                    sum_temp = sum_temp + products[i];
                 end
-                dot_out <= sum_acc;
+                dot_out <= sum_temp;
             end
         end
     end

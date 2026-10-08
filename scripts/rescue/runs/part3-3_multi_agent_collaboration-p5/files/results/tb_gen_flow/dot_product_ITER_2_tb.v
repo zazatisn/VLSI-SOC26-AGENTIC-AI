@@ -1,9 +1,10 @@
 `timescale 1ns/1ps
 
 module tb_dot_product;
+
     parameter N = 8;
     parameter WIDTH = 8;
-    parameter PERIOD = 4.5;
+    parameter CLK_PERIOD = 4.5;
 
     reg clk;
     reg rst;
@@ -11,10 +12,14 @@ module tb_dot_product;
     reg signed [N*WIDTH-1:0] B;
     wire signed [2*WIDTH+3:0] dot_out;
 
-    integer i, k;
-    reg signed [2*WIDTH+3:0] exp_val;
+    reg signed [2*WIDTH+3:0] expected_pipe [0:1];
+    reg signed [N*WIDTH-1:0] A_pipe [0:1];
+    reg signed [N*WIDTH-1:0] B_pipe [0:1];
 
-    dot_product #(.N(N), .WIDTH(WIDTH)) dut (
+    dot_product #(
+        .N(N),
+        .WIDTH(WIDTH)
+    ) dut (
         .clk(clk),
         .rst(rst),
         .A(A),
@@ -22,60 +27,60 @@ module tb_dot_product;
         .dot_out(dot_out)
     );
 
-    always #(PERIOD/2) clk = ~clk;
+    initial begin
+        clk = 0;
+        forever #(CLK_PERIOD/2.0) clk = ~clk;
+    end
 
-    task apply_and_check;
-        input signed [N*WIDTH-1:0] in_a;
-        input signed [N*WIDTH-1:0] in_b;
+    function signed [2*WIDTH+3:0] calc_dot;
+        input [N*WIDTH-1:0] a_in;
+        input [N*WIDTH-1:0] b_in;
+        integer k;
+        reg signed [WIDTH-1:0] a_val;
+        reg signed [WIDTH-1:0] b_val;
         begin
-            A = in_a;
-            B = in_b;
-            @(negedge clk);
-            @(negedge clk);
-            
-            exp_val = 0;
+            calc_dot = 0;
             for (k = 0; k < N; k = k + 1) begin
-                exp_val = exp_val + ($signed(in_a[k*WIDTH +: WIDTH]) * $signed(in_b[k*WIDTH +: WIDTH]));
+                a_val = a_in[k*WIDTH +: WIDTH];
+                b_val = b_in[k*WIDTH +: WIDTH];
+                calc_dot = calc_dot + (a_val * b_val);
             end
+        end
+    endfunction
 
-            if (dot_out === exp_val)
-                $display("TEST: PASS | Inputs: A=%h B=%h | Expected: %d | Output: %d", in_a, in_b, exp_val, dot_out);
-            else
-                $display("TEST: FAIL | Inputs: A=%h B=%h | Expected: %d | Output: %d", in_a, in_b, exp_val, dot_out);
+    task drive_and_expect;
+        input [N*WIDTH-1:0] a_val;
+        input [N*WIDTH-1:0] b_val;
+        begin
+            @(negedge clk);
+            A = a_val;
+            B = b_val;
+            A_pipe[1] = A_pipe[0]; A_pipe[0] = a_val;
+            B_pipe[1] = B_pipe[0]; B_pipe[0] = b_val;
+            expected_pipe[1] = expected_pipe[0];
+            expected_pipe[0] = calc_dot(a_val, b_val);
+            
+            @(negedge clk);
+            @(negedge clk);
+            if (dot_out === expected_pipe[1]) begin
+                $display("TEST: PASS | Inputs: A=%h, B=%h | Expected: %d | Output: %d", A_pipe[1], B_pipe[1], expected_pipe[1], dot_out);
+            end else begin
+                $display("TEST: FAIL | Inputs: A=%h, B=%h | Expected: %d | Output: %d", A_pipe[1], B_pipe[1], expected_pipe[1], dot_out);
+            end
         end
     endtask
 
     initial begin
-        clk = 0;
-        rst = 1;
-        A = 0;
-        B = 0;
-
-        repeat(2) @(posedge clk);
-        @(negedge clk);
+        rst = 1; A = 0; B = 0;
+        repeat(2) @(negedge clk);
         rst = 0;
+        @(negedge clk);
 
-        // Sample case
-        apply_and_check({8'sd-40, 8'sd50, 8'sd-50, 8'sd31, 8'sd14, 8'sd9, 8'sd6, 8'sd-32},
-                        {8'sd-1, 8'sd30, 8'sd41, 8'sd14, 8'sd37, 8'sd50, 8'sd22, 8'sd29});
-
-        // Zero case
-        apply_and_check({N*WIDTH{1'b0}}, {N*WIDTH{1'b0}});
-
-        // Max values
-        for (i = 0; i < N; i = i + 1) begin
-            A[i*WIDTH +: WIDTH] = 8'sd127;
-            B[i*WIDTH +: WIDTH] = 8'sd127;
-        end
-        apply_and_check(A, B);
-
-        // Min values
-        for (i = 0; i < N; i = i + 1) begin
-            A[i*WIDTH +: WIDTH] = -8'sd128;
-            B[i*WIDTH +: WIDTH] = -8'sd128;
-        end
-        apply_and_check(A, B);
-
+        drive_and_expect({8'd(-32), 8'd6, 8'd9, 8'd14, 8'd31, 8'd(-50), 8'd50, 8'd(-40)}, {8'd29, 8'd22, 8'd50, 8'd37, 8'd14, 8'd41, 8'd30, 8'd(-1)});
+        drive_and_expect(64'd0, 64'd0);
+        drive_and_expect(64'h7F7F7F7F7F7F7F7F, 64'h7F7F7F7F7F7F7F7F);
+        drive_and_expect(64'h8080808080808080, 64'h8080808080808080);
+        
         $finish;
     end
 endmodule

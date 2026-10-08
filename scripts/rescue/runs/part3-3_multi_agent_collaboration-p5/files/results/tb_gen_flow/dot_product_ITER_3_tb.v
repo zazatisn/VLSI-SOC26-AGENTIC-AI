@@ -1,9 +1,10 @@
 `timescale 1ns/1ps
 
 module tb_dot_product;
+
     parameter N = 8;
     parameter WIDTH = 8;
-    parameter PERIOD = 4.5;
+    parameter CLK_PERIOD = 4.5;
 
     reg clk;
     reg rst;
@@ -11,13 +12,17 @@ module tb_dot_product;
     reg signed [N*WIDTH-1:0] B;
     wire signed [2*WIDTH+3:0] dot_out;
 
-    integer k;
-    integer i;
-    reg signed [2*WIDTH+3:0] exp_val;
-    reg signed [WIDTH-1:0] A_arr [0:N-1];
-    reg signed [WIDTH-1:0] B_arr [0:N-1];
+    reg signed [N*WIDTH-1:0] history_A [0:2];
+    reg signed [N*WIDTH-1:0] history_B [0:2];
+    reg signed [2*WIDTH+3:0] expected_val;
 
-    dot_product #(.N(N), .WIDTH(WIDTH)) dut (
+    integer i;
+    integer j;
+
+    dot_product #(
+        .N(N),
+        .WIDTH(WIDTH)
+    ) dut (
         .clk(clk),
         .rst(rst),
         .A(A),
@@ -25,63 +30,60 @@ module tb_dot_product;
         .dot_out(dot_out)
     );
 
-    always #(PERIOD/2.0) clk = ~clk;
+    initial begin
+        clk = 0;
+        forever #(CLK_PERIOD/2.0) clk = ~clk;
+    end
 
-    task apply_and_check;
-        input signed [N*WIDTH-1:0] in_a;
-        input signed [N*WIDTH-1:0] in_b;
+    function signed [2*WIDTH+3:0] calc_dot;
+        input [N*WIDTH-1:0] a_in;
+        input [N*WIDTH-1:0] b_in;
+        integer k;
+        reg signed [WIDTH-1:0] a_val;
+        reg signed [WIDTH-1:0] b_val;
+        begin
+            calc_dot = 0;
+            for (k = 0; k < N; k = k + 1) begin
+                a_val = a_in[k*WIDTH +: WIDTH];
+                b_val = b_in[k*WIDTH +: WIDTH];
+                calc_dot = calc_dot + (a_val * b_val);
+            end
+        end
+    endfunction
+
+    task run_test;
+        input [N*WIDTH-1:0] a_val;
+        input [N*WIDTH-1:0] b_val;
         begin
             @(negedge clk);
-            A = in_a;
-            B = in_b;
+            A <= a_val;
+            B <= b_val;
+            history_A[0] = a_val;
+            history_B[0] = b_val;
             
             // Wait 2 cycles for pipeline
             repeat(2) @(negedge clk);
             
-            exp_val = 0;
-            for (k = 0; k < N; k = k + 1) begin
-                exp_val = exp_val + ($signed(in_a[k*WIDTH +: WIDTH]) * $signed(in_b[k*WIDTH +: WIDTH]));
+            expected_val = calc_dot(history_A[0], history_B[0]);
+            if (dot_out === expected_val) begin
+                $display("TEST: PASS | Inputs: A=%h, B=%h | Expected: %d | Output: %d", history_A[0], history_B[0], expected_val, dot_out);
+            end else begin
+                $display("TEST: FAIL | Inputs: A=%h, B=%h | Expected: %d | Output: %d", history_A[0], history_B[0], expected_val, dot_out);
             end
-
-            if (dot_out === exp_val)
-                $display("TEST: PASS | Inputs: A=%h B=%h | Expected: %d | Output: %d", in_a, in_b, exp_val, dot_out);
-            else
-                $display("TEST: FAIL | Inputs: A=%h B=%h | Expected: %d | Output: %d", in_a, in_b, exp_val, dot_out);
         end
     endtask
 
     initial begin
-        clk = 0;
-        rst = 1;
-        A = 0;
-        B = 0;
-
-        repeat(4) @(posedge clk);
-        @(negedge clk);
+        rst = 1; A = 0; B = 0;
+        repeat(2) @(negedge clk);
         rst = 0;
+        @(negedge clk);
 
-        // Sample case
-        A = {8'sd-40, 8'sd50, 8'sd-50, 8'sd31, 8'sd14, 8'sd9, 8'sd6, 8'sd-32};
-        B = {8'sd-1, 8'sd30, 8'sd41, 8'sd14, 8'sd37, 8'sd50, 8'sd22, 8'sd29};
-        apply_and_check(A, B);
-
-        // Zero case
-        apply_and_check({N*WIDTH{1'b0}}, {N*WIDTH{1'b0}});
-
-        // Max values
-        for (i = 0; i < N; i = i + 1) begin
-            A[i*WIDTH +: WIDTH] = 8'sd127;
-            B[i*WIDTH +: WIDTH] = 8'sd127;
-        end
-        apply_and_check(A, B);
-
-        // Min values
-        for (i = 0; i < N; i = i + 1) begin
-            A[i*WIDTH +: WIDTH] = -8'sd128;
-            B[i*WIDTH +: WIDTH] = -8'sd128;
-        end
-        apply_and_check(A, B);
-
+        run_test({8'd(-32), 8'd6, 8'd9, 8'd14, 8'd31, 8'd(-50), 8'd50, 8'd(-40)}, {8'd29, 8'd22, 8'd50, 8'd37, 8'd14, 8'd41, 8'd30, 8'd(-1)});
+        run_test(64'd0, 64'd0);
+        run_test(64'h7F7F7F7F7F7F7F7F, 64'h7F7F7F7F7F7F7F7F);
+        run_test(64'h8080808080808080, 64'h8080808080808080);
+        
         $finish;
     end
 endmodule

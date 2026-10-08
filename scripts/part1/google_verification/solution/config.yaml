@@ -1,4 +1,4 @@
-# Select which profile to use: ollama | groq | gemini_lite | gemini_preview | openai | claude | <other_api_model>
+# Select which profile to use: ollama-llama3.1 | ollama-qwen2.5-coder | groq | gemini_lite | gemini_preview | openai | claude-haiku-4-5 | claude-sonnet-5-5 | claude-opus-5-5 | <other_api_model>
 active_profile: "claude-haiku-4-5"
 
 profiles:
@@ -38,6 +38,8 @@ profiles:
     temperature: 0.0
     cache: true
 
+  
+
   claude-haiku-4-5:
     model: "anthropic/claude-haiku-4-5-20251001"
     api_key: "$ANTHROPIC_API_KEY"
@@ -49,7 +51,7 @@ profiles:
     api_key: "$ANTHROPIC_API_KEY"
     temperature: 1
     cache: true
-  
+
   claude-opus-5-5:
     model: "anthropic/claude-opus-5-5"
     api_key: "$ANTHROPIC_API_KEY"

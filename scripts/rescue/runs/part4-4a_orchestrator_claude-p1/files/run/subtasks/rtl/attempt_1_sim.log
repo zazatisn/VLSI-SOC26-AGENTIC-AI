@@ -1,0 +1,17 @@
+Compilation succeeded.
+TEST: PASS | Inputs: data_in=1 idx=0 | Expected: 0 | Output: 0
+TEST: PASS | Inputs: data_in=0 idx=1 | Expected: 0 | Output: 0
+TEST: PASS | Inputs: data_in=0 idx=2 | Expected: 0 | Output: 0
+TEST: PASS | Inputs: data_in=0 idx=3 | Expected: 0 | Output: 0
+TEST: PASS | Inputs: data_in=1 idx=4 | Expected: 0 | Output: 0
+TEST: PASS | Inputs: data_in=1 idx=5 | Expected: 1 | Output: 1
+TEST: PASS | Inputs: data_in=0 idx=6 | Expected: 0 | Output: 0
+TEST: PASS | Inputs: data_in=0 idx=7 | Expected: 0 | Output: 0
+TEST: PASS | Inputs: data_in=1 idx=8 | Expected: 0 | Output: 0
+TEST: PASS | Inputs: data_in=1 idx=9 | Expected: 1 | Output: 1
+TEST: PASS | Inputs: data_in=0 idx=10 | Expected: 0 | Output: 0
+TEST: PASS | Inputs: data_in=1 idx=11 | Expected: 0 | Output: 0
+TEST: PASS | Inputs: data_in=1 idx=12 | Expected: 0 | Output: 0
+TEST: PASS | Inputs: data_in=0 idx=13 | Expected: 0 | Output: 0
+TEST: PASS | Inputs: data_in=0 idx=14 | Expected: 0 | Output: 0
+TEST: PASS | Inputs: data_in=1 idx=15 | Expected: 0 | Output: 0

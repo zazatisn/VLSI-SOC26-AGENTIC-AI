@@ -1,0 +1,189 @@
+{
+  "design": "p1.yaml",
+  "agent_mode": "multi",
+  "wall_time_s": 155.9,
+  "total": {
+    "prompt_tokens": 11135,
+    "completion_tokens": 3421,
+    "total_tokens": 14556,
+    "calls": 12,
+    "duration_s": 123.363,
+    "tps": 117.99,
+    "tpm": 7079.59
+  },
+  "per_agent": {
+    "tb_generator": {
+      "prompt_tokens": 1591,
+      "completion_tokens": 692,
+      "total_tokens": 2283,
+      "calls": 1,
+      "duration_s": 6.166,
+      "tps": 370.26,
+      "tpm": 22215.37
+    },
+    "sdc_generator": {
+      "prompt_tokens": 1311,
+      "completion_tokens": 330,
+      "total_tokens": 1641,
+      "calls": 1,
+      "duration_s": 108.076,
+      "tps": 15.18,
+      "tpm": 911.03
+    },
+    "rtl_generator": {
+      "prompt_tokens": 8233,
+      "completion_tokens": 2399,
+      "total_tokens": 10632,
+      "calls": 10,
+      "duration_s": 9.121,
+      "tps": 1165.66,
+      "tpm": 69939.7
+    }
+  },
+  "calls": [
+    {
+      "agent": "tb_generator",
+      "step": "TB generation, iteration 1",
+      "model": "gemini/gemini-3.1-flash-lite",
+      "prompt_tokens": 1591,
+      "completion_tokens": 692,
+      "total_tokens": 2283,
+      "cached": false,
+      "duration_s": 6.166,
+      "tps": 370.26,
+      "tpm": 22215.4
+    },
+    {
+      "agent": "sdc_generator",
+      "step": "SDC generation, iteration 1",
+      "model": "ollama_chat/llama3.1",
+      "prompt_tokens": 1311,
+      "completion_tokens": 330,
+      "total_tokens": 1641,
+      "cached": false,
+      "duration_s": 108.076,
+      "tps": 15.18,
+      "tpm": 911.0
+    },
+    {
+      "agent": "rtl_generator",
+      "step": "RTL generation, iteration 1",
+      "model": "gemini/gemini-3.1-flash-lite",
+      "prompt_tokens": 2371,
+      "completion_tokens": 892,
+      "total_tokens": 3263,
+      "cached": false,
+      "duration_s": 3.362,
+      "tps": 970.67,
+      "tpm": 58240.3
+    },
+    {
+      "agent": "rtl_generator",
+      "step": "RTL generation, iteration 2",
+      "model": "gemini/gemini-3.1-flash-lite",
+      "prompt_tokens": 2926,
+      "completion_tokens": 773,
+      "total_tokens": 3699,
+      "cached": false,
+      "duration_s": 2.76,
+      "tps": 1340.27,
+      "tpm": 80416.0
+    },
+    {
+      "agent": "rtl_generator",
+      "step": "RTL generation, iteration 3",
+      "model": "gemini/gemini-3.1-flash-lite",
+      "prompt_tokens": 2936,
+      "completion_tokens": 734,
+      "total_tokens": 3670,
+      "cached": false,
+      "duration_s": 2.713,
+      "tps": 1352.98,
+      "tpm": 81178.7
+    },
+    {
+      "agent": "rtl_generator",
+      "step": "RTL generation, iteration 4",
+      "model": "gemini/gemini-3.1-flash-lite",
+      "prompt_tokens": 0,
+      "completion_tokens": 0,
+      "total_tokens": 0,
+      "cached": true,
+      "duration_s": 0.048,
+      "tps": 0.0,
+      "tpm": 0.0
+    },
+    {
+      "agent": "rtl_generator",
+      "step": "RTL generation, iteration 5",
+      "model": "gemini/gemini-3.1-flash-lite",
+      "prompt_tokens": 0,
+      "completion_tokens": 0,
+      "total_tokens": 0,
+      "cached": true,
+      "duration_s": 0.034,
+      "tps": 0.0,
+      "tpm": 0.0
+    },
+    {
+      "agent": "rtl_generator",
+      "step": "RTL generation, iteration 6",
+      "model": "gemini/gemini-3.1-flash-lite",
+      "prompt_tokens": 0,
+      "completion_tokens": 0,
+      "total_tokens": 0,
+      "cached": true,
+      "duration_s": 0.031,
+      "tps": 0.0,
+      "tpm": 0.0
+    },
+    {
+      "agent": "rtl_generator",
+      "step": "RTL generation, iteration 7",
+      "model": "gemini/gemini-3.1-flash-lite",
+      "prompt_tokens": 0,
+      "completion_tokens": 0,
+      "total_tokens": 0,
+      "cached": true,
+      "duration_s": 0.048,
+      "tps": 0.0,
+      "tpm": 0.0
+    },
+    {
+      "agent": "rtl_generator",
+      "step": "RTL generation, iteration 8",
+      "model": "gemini/gemini-3.1-flash-lite",
+      "prompt_tokens": 0,
+      "completion_tokens": 0,
+      "total_tokens": 0,
+      "cached": true,
+      "duration_s": 0.06,
+      "tps": 0.0,
+      "tpm": 0.0
+    },
+    {
+      "agent": "rtl_generator",
+      "step": "RTL generation, iteration 9",
+      "model": "gemini/gemini-3.1-flash-lite",
+      "prompt_tokens": 0,
+      "completion_tokens": 0,
+      "total_tokens": 0,
+      "cached": true,
+      "duration_s": 0.03,
+      "tps": 0.0,
+      "tpm": 0.0
+    },
+    {
+      "agent": "rtl_generator",
+      "step": "RTL generation, iteration 10",
+      "model": "gemini/gemini-3.1-flash-lite",
+      "prompt_tokens": 0,
+      "completion_tokens": 0,
+      "total_tokens": 0,
+      "cached": true,
+      "duration_s": 0.035,
+      "tps": 0.0,
+      "tpm": 0.0
+    }
+  ]
+}

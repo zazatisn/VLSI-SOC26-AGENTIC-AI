@@ -1,0 +1,24 @@
+{
+  "id": "part2-2d_multi_agent_mixed_models_validators-p1",
+  "entry": {
+    "part": 2,
+    "run": "2d_multi_agent_mixed_models_validators",
+    "design": "p1.yaml"
+  },
+  "cwd": "part2/solution",
+  "command": [
+    "python3",
+    "asic_autonomous_flow.py",
+    "--config",
+    "run_configs/2d_multi_agent_mixed_models_validators.yaml",
+    "--design",
+    "p1.yaml"
+  ],
+  "recorded": "2026-10-08T11:50:47",
+  "duration_s": 69.6,
+  "exit_code": 0,
+  "git_commit": "",
+  "fresh_cache": true,
+  "tokens_total": 58756,
+  "status": "failed"
+}

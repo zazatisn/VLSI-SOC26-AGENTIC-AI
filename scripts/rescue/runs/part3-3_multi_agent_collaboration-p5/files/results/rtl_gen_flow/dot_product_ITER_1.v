@@ -11,26 +11,34 @@ module dot_product #(
     output reg signed [2*WIDTH+3:0] dot_out
 );
 
-    reg signed [2*WIDTH-1:0] products_reg [0:N-1];
     integer i;
+
+    // Intermediate registers for pipeline stages
+    reg signed [2*WIDTH-1:0] products [N-1:0];
+    reg signed [2*WIDTH+3:0] sum_reg;
 
     always @(posedge clk) begin
         if (rst) begin
             for (i = 0; i < N; i = i + 1) begin
-                products_reg[i] <= {(2*WIDTH){1'b0}};
+                products[i] <= {2*WIDTH{1'b0}};
             end
             dot_out <= {(2*WIDTH+4){1'b0}};
         end else begin
-            // Stage 1: Compute products and store in registers
+            // Stage 1: Multiply and store in pipeline registers
             for (i = 0; i < N; i = i + 1) begin
-                products_reg[i] <= $signed(A[i*WIDTH +: WIDTH]) * $signed(B[i*WIDTH +: WIDTH]);
+                products[i] <= $signed(A[i*WIDTH +: WIDTH]) * $signed(B[i*WIDTH +: WIDTH]);
             end
             
-            // Stage 2: Sum the products
-            dot_out <= 0;
-            for (i = 0; i < N; i = i + 1) begin
-                dot_out <= dot_out + products_reg[i];
-            end
+            // Stage 2: Sum products and update output
+            dot_out <= sum_reg;
+        end
+    end
+
+    // Combinatorial summation logic for Stage 2
+    always @(*) begin
+        sum_reg = {(2*WIDTH+4){1'b0}};
+        for (i = 0; i < N; i = i + 1) begin
+            sum_reg = sum_reg + products[i];
         end
     end
 

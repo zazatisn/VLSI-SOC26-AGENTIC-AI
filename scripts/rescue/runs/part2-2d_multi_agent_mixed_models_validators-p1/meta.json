@@ -14,9 +14,12 @@
     "--design",
     "p1.yaml"
   ],
-  "recorded": "2026-10-08T09:38:04",
-  "duration_s": 54.7,
+  "recorded": "2026-10-08T11:52:48",
+  "duration_s": 118.0,
   "exit_code": 0,
   "git_commit": "",
-  "tokens_total": 49896
+  "fresh_cache": true,
+  "tokens_total": 72804,
+  "status": "failed",
+  "cached_answers": 11
 }

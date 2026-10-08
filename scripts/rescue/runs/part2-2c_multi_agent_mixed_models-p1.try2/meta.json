@@ -1,0 +1,25 @@
+{
+  "id": "part2-2c_multi_agent_mixed_models-p1",
+  "entry": {
+    "part": 2,
+    "run": "2c_multi_agent_mixed_models",
+    "design": "p1.yaml"
+  },
+  "cwd": "part2/solution",
+  "command": [
+    "python3",
+    "asic_autonomous_flow.py",
+    "--config",
+    "run_configs/2c_multi_agent_mixed_models.yaml",
+    "--design",
+    "p1.yaml"
+  ],
+  "recorded": "2026-10-08T11:45:13",
+  "duration_s": 114.8,
+  "exit_code": 0,
+  "git_commit": "",
+  "fresh_cache": true,
+  "tokens_total": 18171,
+  "status": "failed",
+  "cached_answers": 6
+}

@@ -7,69 +7,65 @@ module seq_detector_0011(
     output reg detected
 );
 
-    localparam [2:0] IDLE  = 3'b000;
-    localparam [2:0] S0    = 3'b001;
-    localparam [2:0] S00   = 3'b010;
-    localparam [2:0] S001  = 3'b011;
-    localparam [2:0] S0011 = 3'b100;
+    localparam S_IDLE = 3'b000;
+    localparam S_0    = 3'b001;
+    localparam S_00   = 3'b010;
+    localparam S_001  = 3'b011;
+    localparam S_0011 = 3'b100;
 
     reg [2:0] state;
     reg [2:0] next_state;
-    reg detected_comb;
 
     always @(posedge clk) begin
         if (reset) begin
-            state <= IDLE;
+            state <= S_IDLE;
             detected <= 1'b0;
         end else begin
             state <= next_state;
-            detected <= detected_comb;
+            detected <= (next_state == S_0011);
         end
     end
 
     always @(*) begin
-        next_state = state;
-        detected_comb = 1'b0;
+        next_state = S_IDLE;
         case (state)
-            IDLE: begin
+            S_IDLE: begin
                 if (data_in == 1'b0) begin
-                    next_state = S0;
+                    next_state = S_0;
                 end else begin
-                    next_state = IDLE;
+                    next_state = S_IDLE;
                 end
             end
-            S0: begin
+            S_0: begin
                 if (data_in == 1'b0) begin
-                    next_state = S00;
+                    next_state = S_00;
                 end else begin
-                    next_state = IDLE;
+                    next_state = S_IDLE;
                 end
             end
-            S00: begin
+            S_00: begin
                 if (data_in == 1'b0) begin
-                    next_state = S00;
+                    next_state = S_00;
                 end else begin
-                    next_state = S001;
+                    next_state = S_001;
                 end
             end
-            S001: begin
+            S_001: begin
                 if (data_in == 1'b0) begin
-                    next_state = S0;
+                    next_state = S_0;
                 end else begin
-                    next_state = S0011;
-                    detected_comb = 1'b1;
+                    next_state = S_0011;
                 end
             end
-            S0011: begin
+            S_0011: begin
                 if (data_in == 1'b0) begin
-                    next_state = S0;
+                    next_state = S_0;
                 end else begin
-                    next_state = IDLE;
+                    next_state = S_IDLE;
                 end
             end
             default: begin
-                next_state = IDLE;
-                detected_comb = 1'b0;
+                next_state = S_IDLE;
             end
         endcase
     end

@@ -1,0 +1,47 @@
+--> Initializing DSPy LM profile: 'claude-haiku-4-5' (anthropic/claude-haiku-4-5-20251001)
+Generating Testbench via DSPy for 'enc_bin2gray'...
+
+================ EVALUATION & PERFORMANCE SUMMARY ================
+Design Folder:   enc_bin2gray
+Mutants Passed:  1
+Golden TB Saved: /home/scripts/part1/google_verification/solution/enc_bin2gray/golden.tb
+Generation Time: 14.30 seconds
+Token Usage:     Prompt: 1110 | Completion: 1310 | Total: 2420
+Throughput:      10,156.1 TPM (169.27 TPS)
+==================================================================
+
+--- EVALUATION LOG OUTPUT ---
+Mutant           | Status    
+------------------------------
+mutant_0         | FAILED
+mutant_1         | FAILED
+mutant_2         | FAILED
+mutant_3         | FAILED
+mutant_4         | FAILED
+mutant_5         | FAILED
+mutant_6         | FAILED
+mutant_7         | FAILED
+mutant_8         | FAILED
+mutant_9         | FAILED
+mutant_10        | FAILED
+mutant_11        | FAILED
+mutant_12        | FAILED
+mutant_13        | FAILED
+mutant_14        | FAILED
+mutant_15        | FAILED
+mutant_16        | FAILED
+mutant_17        | FAILED
+mutant_18        | FAILED
+mutant_19        | FAILED
+mutant_20        | FAILED
+mutant_21        | FAILED
+mutant_22        | FAILED
+mutant_23        | FAILED
+mutant_24        | FAILED
+mutant_25        | PASSED
+mutant_26        | FAILED
+mutant_27        | FAILED
+mutant_28        | FAILED
+mutant_29        | FAILED
+mutant_30        | FAILED
+

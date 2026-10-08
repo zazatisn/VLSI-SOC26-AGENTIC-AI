@@ -11,34 +11,30 @@ module dot_product #(
     output reg signed [2*WIDTH+3:0] dot_out
 );
 
-    reg signed [2*WIDTH-1:0] products_reg [0:N-1];
     integer i;
-
-    // Intermediate sum variable for combinational logic
-    reg signed [2*WIDTH+3:0] sum_comb;
+    reg signed [2*WIDTH-1:0] products [N-1:0];
+    reg signed [2*WIDTH+3:0] next_sum;
 
     always @(posedge clk) begin
         if (rst) begin
             for (i = 0; i < N; i = i + 1) begin
-                products_reg[i] <= {(2*WIDTH){1'b0}};
+                products[i] <= {2*WIDTH{1'b0}};
             end
             dot_out <= {(2*WIDTH+4){1'b0}};
         end else begin
-            // Stage 1: Compute products and store in registers
+            // Stage 1: Perform multiplications
             for (i = 0; i < N; i = i + 1) begin
-                products_reg[i] <= $signed(A[i*WIDTH +: WIDTH]) * $signed(B[i*WIDTH +: WIDTH]);
+                products[i] <= $signed(A[i*WIDTH +: WIDTH]) * $signed(B[i*WIDTH +: WIDTH]);
             end
-            
-            // Stage 2: Capture the combinatorial sum
-            dot_out <= sum_comb;
+            // Stage 2: Sum products and register into output
+            dot_out <= next_sum;
         end
     end
 
-    // Combinatorial summation of the registered products
     always @(*) begin
-        sum_comb = {(2*WIDTH+4){1'b0}};
+        next_sum = {2*WIDTH+4{1'b0}};
         for (i = 0; i < N; i = i + 1) begin
-            sum_comb = sum_comb + products_reg[i];
+            next_sum = next_sum + products[i];
         end
     end
 

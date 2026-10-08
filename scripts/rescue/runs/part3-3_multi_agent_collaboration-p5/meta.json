@@ -14,9 +14,11 @@
     "--design",
     "p5.yaml"
   ],
-  "recorded": "2026-10-08T09:41:58",
-  "duration_s": 107.5,
+  "recorded": "2026-10-08T12:03:28",
+  "duration_s": 174.8,
   "exit_code": 0,
   "git_commit": "",
-  "tokens_total": 54604
+  "fresh_cache": true,
+  "tokens_total": 59110,
+  "status": "failed"
 }

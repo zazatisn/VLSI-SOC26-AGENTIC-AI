@@ -6,63 +6,64 @@ module fp16_multiplier(
     output reg [15:0] result
 );
 
-    reg sign;
-    reg [4:0] exp_a, exp_b;
-    reg [10:0] mant_a, mant_b;
-    reg [21:0] prod;
-    reg [5:0] res_exp;
-    reg [10:0] norm_mant;
-    reg guard, round, sticky;
-    reg round_up;
+    reg        sign;
+    reg [4:0]  exp_a, exp_b;
+    reg [10:0] sig_a, sig_b;
+    reg [21:0] product;
+    reg [5:0]  exp_sum;
+    reg [10:0] mant_res;
+    reg        guard, round, sticky;
+    reg        round_up;
+    reg [5:0]  exp_final;
 
     always @(*) begin
         sign = a[15] ^ b[15];
         exp_a = a[14:10];
         exp_b = b[14:10];
-        mant_a = {1'b1, a[9:0]};
-        mant_b = {1'b1, b[9:0]};
-        prod = mant_a * mant_b;
+        sig_a = {1'b1, a[9:0]};
+        sig_b = {1'b1, b[9:0]};
+        product = sig_a * sig_b;
 
-        // Zero case
-        if (exp_a == 5'b0 || exp_b == 5'b0) begin
-            result = {sign, 15'b0};
+        // Default
+        result = 16'd0;
+
+        if ((exp_a == 5'd0) || (exp_b == 5'd0)) begin
+            result = {sign, 15'd0};
+        end else if ((exp_a == 5'd31) || (exp_b == 5'd31)) begin
+            result = {sign, 5'd31, 10'd0};
         end else begin
-            // Determine exponent: (Ea - 15) + (Eb - 15) + 15 = Ea + Eb - 15
-            res_exp = exp_a + exp_b - 5'd15;
+            exp_sum = exp_a + exp_b - 5'd15;
             
-            // Check normalization (bit 21 is 1 if product >= 2.0)
-            if (prod[21]) begin
-                norm_mant = prod[21:11];
-                guard = prod[10];
-                round = prod[9];
-                sticky = |prod[8:0];
-                res_exp = res_exp + 1'b1;
+            if (product[21]) begin
+                exp_final = exp_sum + 6'd1;
+                mant_res = product[21:11];
+                guard = product[10];
+                round = product[9];
+                sticky = (|product[8:0]);
             end else begin
-                norm_mant = prod[20:10];
-                guard = prod[9];
-                round = prod[8];
-                sticky = |prod[7:0];
+                exp_final = exp_sum;
+                mant_res = product[20:10];
+                guard = product[9];
+                round = product[8];
+                sticky = (|product[7:0]);
             end
 
-            // Nearest-Even Rounding
-            round_up = guard && (round || sticky || norm_mant[0]);
-            
+            // Rounding: nearest even
+            round_up = guard && (round || sticky || mant_res[0]);
             if (round_up) begin
-                norm_mant = norm_mant + 1'b1;
-                // Check if carry out from rounding
-                if (norm_mant[10]) begin
-                    norm_mant = norm_mant >> 1;
-                    res_exp = res_exp + 1'b1;
+                mant_res = mant_res + 1'b1;
+                if (mant_res[10]) begin
+                    exp_final = exp_final + 6'd1;
+                    mant_res = {1'b1, 10'd0};
                 end
             end
 
-            // Bounds check
-            if (res_exp >= 6'd31) begin
-                result = {sign, 5'b11111, 10'b0};
-            end else if ($signed(res_exp) <= 0) begin
-                result = {sign, 15'b0};
+            if (exp_final >= 6'd31) begin
+                result = {sign, 5'd31, 10'd0};
+            end else if (exp_final <= 6'd0) begin
+                result = {sign, 15'd0};
             end else begin
-                result = {sign, res_exp[4:0], norm_mant[9:0]};
+                result = {sign, exp_final[4:0], mant_res[9:0]};
             end
         end
     end

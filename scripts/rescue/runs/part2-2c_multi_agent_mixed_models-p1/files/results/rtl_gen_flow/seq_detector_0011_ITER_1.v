@@ -19,15 +19,15 @@ module seq_detector_0011(
     always @(posedge clk) begin
         if (reset) begin
             state <= IDLE;
-            detected <= 1'b0;
         end else begin
             state <= next_state;
-            detected <= (next_state == S0011);
         end
     end
 
     always @(*) begin
         next_state = state;
+        detected = 1'b0;
+
         case (state)
             IDLE: begin
                 if (data_in == 1'b0) begin
@@ -58,6 +58,7 @@ module seq_detector_0011(
                 end
             end
             S0011: begin
+                detected = 1'b1;
                 if (data_in == 1'b0) begin
                     next_state = S0;
                 end else begin

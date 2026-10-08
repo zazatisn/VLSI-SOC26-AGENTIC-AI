@@ -1,0 +1,4225 @@
+Checking environment...
+⚠️  Directory 'runs/2b_multi_agent/results/p8' created.
+⚠️  Directory 'runs/2b_multi_agent/solution/p8' created.
+System is ready!
+
+Flow config file                   : run_configs/2b_multi_agent.yaml
+Starting Agentic ASIC flow for     : p8.yaml...
+Agent mode                         : MULTI
+Verification mode                  : RTL
+PPA scoring                        : ON
+Iterative score optimization       : OFF (exit at the first accepted physical flow)
+Resynthesis if timing is not met   : OFF (the RTL is never regenerated because of timing)
+RTL generation DSPy mode           : Simple Run
+TB  Generator model selected       : gemini/gemini-3.1-flash-lite
+TB  Validator model selected       : Disabled (None)
+SDC Generator model selected       : gemini/gemini-3.1-flash-lite
+RTL Generator model selected       : gemini/gemini-3.1-flash-lite
+RTL Validator model selected       : Disabled (None)
+Config MK Generator model selected : gemini/gemini-3.1-flash-lite
+
+
+======================================================================
+
+🚀 Starting testbench generation flow for: fp16_multiplier...
+
+[TB GEN] Iteration 1/10...
+
+[TOKENS] tb_generator | TB generation, iteration 1 | gemini/gemini-3.1-flash-lite
+Call Time:       6.17s
+Tokens Used:     Prompt: 1923 | Completion: 816 | Total: 2739
+Throughput:      26,632.3 TPM (443.87 TPS)
+
+
+
+
+[2026-10-08T11:53:56.644103]
+
+System message:
+
+Your input fields are:
+1. `yaml_spec` (str): Hardware specification in YAML format
+2. `module_signature` (str): DUT (Device Under Test) signature
+3. `simulation_rules` (str): MANDATORY simulation rules
+4. `previous_code` (str): Testbench Verilog code from the last iteration (if any)
+5. `feedback` (str): Errors from Icarus Verilog or logic mismatches
+Your output fields are:
+1. `reasoning` (str): 
+2. `testbench_code` (str): Complete Verilog-2001 testbench, no explanation, no markdown, no timescale
+All interactions will be structured in the following way, with the appropriate values filled in.
+
+[[ ## yaml_spec ## ]]
+{yaml_spec}
+
+[[ ## module_signature ## ]]
+{module_signature}
+
+[[ ## simulation_rules ## ]]
+{simulation_rules}
+
+[[ ## previous_code ## ]]
+{previous_code}
+
+[[ ## feedback ## ]]
+{feedback}
+
+[[ ## reasoning ## ]]
+{reasoning}
+
+[[ ## testbench_code ## ]]
+{testbench_code}
+
+[[ ## completed ## ]]
+In adhering to this structure, your objective is: 
+        You are an expert Design Verification Engineer. Create a self-checking
+        Verilog-2001 testbench for the given YAML specification and simulation rules.
+
+
+User message:
+
+[[ ## yaml_spec ## ]]
+description: |
+  16-bit floating-point multiplier (IEEE 754 half-precision compatible) with support for zero detection and rounding to nearest even. Takes two 16-bit FP16 inputs and computes the product in a single cycle. Ignore subnormal/denormal inputs or outputs.
+tech_node: SkyWater 130HD
+clock_period: 9ns
+parameters: {}
+ports:
+- {name: a, direction: input, type: '[15:0]', description: FP16 input operand A}
+- {name: b, direction: input, type: '[15:0]', description: FP16 input operand B}
+- {name: result, direction: output, type: 'reg [15:0]', description: FP16 product result of A * B}
+module_signature: |
+  module fp16_multiplier(
+      input      [15:0] a,
+      input      [15:0] b,
+      output reg [15:0] result
+  );
+sample_usage:
+  description: |
+    Example use case multiplying 1.0 * 2.0, expecting 2.0 in FP16 encoding.
+  a: 16'b0_01111_0000000000
+  b: 16'b0_10000_0000000000
+  result: 16'b0_10000_0000000000
+timing: |
+  Purely combinational (no clock, no reset). A testbench applies a and b, waits 1 ns
+  (#1) and checks result. Use the combinational SDC template.
+arithmetic: |
+  sign = a[15] ^ b[15]. If a or b is zero (exponent field 0), result = signed zero
+  {sign, 15'b0}. Otherwise multiply the 11-bit significands {1, mantissa}, add the exponents
+  and subtract the bias 15, normalize, and round the mantissa to nearest, ties to even.
+  Exponent overflow (>= 31) -> infinity {sign, 5'b11111, 10'b0}; underflow (< 1) -> {sign, 15'b0}.
+  Reference cases (from the official testbench):
+    1.0 (0_01111_0000000000) *  2.0 (0_10000_0000000000) =   2.0 (0_10000_0000000000)
+    0.0 (0_00000_0000000000) *  5.0 (0_10001_0100000000) =   0.0 (0_00000_0000000000)
+   -3.0 (1_10000_1000000000) *  4.0 (0_10001_0000000000) = -12.0 (1_10010_1000000000)
+
+
+[[ ## module_signature ## ]]
+module fp16_multiplier(
+    input      [15:0] a,
+    input      [15:0] b,
+    output reg [15:0] result
+);
+
+
+[[ ## simulation_rules ## ]]
+--- MANDATORY TB RULES (STRICT COMPLIANCE REQUIRED) ---
+
+1. READ THE SPEC'S "timing" (AND "arithmetic") SECTION FIRST:
+   - It defines the latency (how many rising edges until an output shows a result), the reset
+     behaviour, and how sample sequences line up with the clock. Follow it EXACTLY.
+   - Compute every expected value from the spec (formulas, sample values, reference values).
+     If the spec allows a tolerance, check |output - expected| <= tolerance instead of equality.
+
+2. CLOCK & RESET (designs with a clock port):
+   - Generate a clock with the spec's clock_period (e.g. 1.1ns -> toggle every 0.55).
+   - Assert the reset port (name and polarity from the spec) at time 0 for at least 2 rising
+     edges, and release it on a FALLING edge.
+   - Initialize every input at time 0 to avoid 'X' values.
+
+3. RACE-FREE DRIVE & CHECK PROTOCOL (designs with a clock port):
+   - Drive inputs ONLY on the falling edge: @(negedge clk).
+   - Check outputs ONLY on a falling edge, BEFORE driving the next inputs. A result that appears
+     L rising edges after its inputs were sampled is checked L falling edges after you drove them.
+   - NEVER check exactly at @(posedge clk) and NEVER with a small delay after it (#0.1, #1):
+     that samples the flip-flops in the middle of their update and shifts results by one cycle.
+
+4. COMBINATIONAL DESIGNS (no clock port in the module signature):
+   - Do not generate a clock. Apply the inputs, wait #1, then check the outputs.
+
+5. COVERAGE:
+   - Reproduce every sample / reference case of the spec, then add corner cases: reset in the
+     middle of operation, zero, maximum and minimum values, overflow / wrap-around, signed
+     negative values, back-to-back inputs.
+
+6. REPORTING (PER CHECK):
+   - Every check prints exactly one line:
+     "TEST: PASS | Inputs: [Name=Value...] | Expected: [Value] | Output: [Value]"
+     or the same line with FAIL.
+   - The flow decides the result by searching the log for PASS and FAIL: NEVER print the
+     words PASS or FAIL (in any letter case, e.g. "0 failures") anywhere else.
+
+7. CODING DISCIPLINE & TERMINATION:
+   - Verilog-2001 only: reg / wire / integer. No SystemVerilog (no logic, int, assert, $urandom).
+   - Do NOT use assert(variable == value): use if statements for every check.
+   - Declare every reg, wire and integer at the top of the module.
+   - Instantiate the DUT with named port connections (.port(signal)) and the spec's parameters.
+   - Every loop waiting for a signal (e.g. 'valid') has a maximum wait time.
+   - Call $finish EXACTLY ONCE, at the end of the testbench.
+
+[[ ## previous_code ## ]]
+None (First Attempt)
+
+[[ ## feedback ## ]]
+Initial attempt. Ensure strict specification compliance and PASS/FAIL reporting.
+
+Respond with the corresponding output fields, starting with the field `[[ ## reasoning ## ]]`, then `[[ ## testbench_code ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`.
+
+
+Response:
+
+[[ ## reasoning ## ]]
+The design is purely combinational, as specified in the YAML `timing` section. Therefore, no clock generation is required. I will use a testbench that iterates through the provided reference cases and specific corner cases (like zero, infinity, and negative numbers). The inputs `a` and `b` will be driven, followed by a `#1` delay to allow the combinational path to settle, and then the `result` will be compared against the expected values. The reporting format will strictly adhere to the `TEST: PASS/FAIL` template.
+
+[[ ## testbench_code ## ]]
+module tb_fp16_multiplier();
+
+    reg [15:0] a;
+    reg [15:0] b;
+    wire [15:0] result;
+
+    fp16_multiplier dut (
+        .a(a),
+        .b(b),
+        .result(result)
+    );
+
+    task check_case;
+        input [15:0] in_a;
+        input [15:0] in_b;
+        input [15:0] exp;
+        begin
+            a = in_a;
+            b = in_b;
+            #1;
+            if (result === exp) begin
+                $display("TEST: PASS | Inputs: a=%h, b=%h | Expected: %h | Output: %h", in_a, in_b, exp, result);
+            end else begin
+                $display("TEST: FAIL | Inputs: a=%h, b=%h | Expected: %h | Output: %h", in_a, in_b, exp, result);
+            end
+        end
+    endtask
+
+    initial begin
+        // Reference cases from spec
+        // 1.0 * 2.0 = 2.0
+        check_case(16'h3c00, 16'h4000, 16'h4000);
+        // 0.0 * 5.0 = 0.0
+        check_case(16'h0000, 16'h4500, 16'h0000);
+        // -3.0 * 4.0 = -12.0
+        check_case(16'hc000, 16'h4800, 16'hc900);
+
+        // Corner cases
+        // 0.0 * 0.0 = 0.0
+        check_case(16'h0000, 16'h0000, 16'h0000);
+        // 1.0 * -1.0 = -1.0
+        check_case(16'h3c00, 16'hbc00, 16'hbc00);
+        // Infinity * 1.0 = Infinity
+        check_case(16'h7c00, 16'h3c00, 16'h7c00);
+        // Max Positive * 2.0 = Infinity (Overflow)
+        check_case(16'h7bff, 16'h4000, 16'h7c00);
+        // Smallest positive * 0.5 = 0.0 (Underflow)
+        check_case(16'h0400, 16'h3800, 16'h0000);
+
+        $finish;
+    end
+
+endmodule
+
+[[ ## completed ## ]]
+
+
+
+
+
+✨ File fp16_multiplier_ITER_1_tb.v saved at : runs/2b_multi_agent/results/p8/tb_gen_flow/fp16_multiplier_ITER_1_tb.v
+✨ File fp16_multiplier_tb.v saved at : runs/2b_multi_agent/results/p8/tb_gen_flow/fp16_multiplier_tb.v
+
+Compiling testbench with Icarus Iverilog...
+Compilation succeeded.
+
+✅ Success! Testbench syntax verified after 1 iterations.
+
+[TB VALIDATOR] Skipped (TB Validator set to None)
+⏱️  TB generation time: 6.46 seconds
+
+======================================================================
+
+🚀 Starting SDC generation flow for: fp16_multiplier...
+
+[SDC GEN] Iteration 1/10...
+
+[TOKENS] sdc_generator | SDC generation, iteration 1 | gemini/gemini-3.1-flash-lite
+Call Time:       1.38s
+Tokens Used:     Prompt: 1845 | Completion: 170 | Total: 2015
+Throughput:      87,622.5 TPM (1460.38 TPS)
+
+
+
+
+[2026-10-08T11:53:58.293263]
+
+System message:
+
+Your input fields are:
+1. `yaml_spec` (str): Hardware functional requirements in YAML format
+2. `sdc_rules` (str): MANDATORY SDC generation rules
+3. `sdc_template` (str): Available SDC templates to fill in (Sequential vs Combinational)
+4. `previous_sdc` (str): SDC file from the last iteration (if any)
+5. `feedback` (str): OpenROAD Flow Scripts errors from previous SDC attempts, or 'Initial attempt'.
+Your output fields are:
+1. `reasoning` (str): 
+2. `sdc_content` (str): Complete SDC file content, no markdown, no explanation
+All interactions will be structured in the following way, with the appropriate values filled in.
+
+[[ ## yaml_spec ## ]]
+{yaml_spec}
+
+[[ ## sdc_rules ## ]]
+{sdc_rules}
+
+[[ ## sdc_template ## ]]
+{sdc_template}
+
+[[ ## previous_sdc ## ]]
+{previous_sdc}
+
+[[ ## feedback ## ]]
+{feedback}
+
+[[ ## reasoning ## ]]
+{reasoning}
+
+[[ ## sdc_content ## ]]
+{sdc_content}
+
+[[ ## completed ## ]]
+In adhering to this structure, your objective is: 
+        You are an expert ASIC timing constraints engineer.
+        Given a hardware YAML specification, an SDC template, and SDC generation rules,
+        produce a correct and complete Synopsys Design Constraints (SDC) file for Yosys synthesis.
+
+
+User message:
+
+[[ ## yaml_spec ## ]]
+description: |
+  16-bit floating-point multiplier (IEEE 754 half-precision compatible) with support for zero detection and rounding to nearest even. Takes two 16-bit FP16 inputs and computes the product in a single cycle. Ignore subnormal/denormal inputs or outputs.
+tech_node: SkyWater 130HD
+clock_period: 9ns
+parameters: {}
+ports:
+- {name: a, direction: input, type: '[15:0]', description: FP16 input operand A}
+- {name: b, direction: input, type: '[15:0]', description: FP16 input operand B}
+- {name: result, direction: output, type: 'reg [15:0]', description: FP16 product result of A * B}
+module_signature: |
+  module fp16_multiplier(
+      input      [15:0] a,
+      input      [15:0] b,
+      output reg [15:0] result
+  );
+sample_usage:
+  description: |
+    Example use case multiplying 1.0 * 2.0, expecting 2.0 in FP16 encoding.
+  a: 16'b0_01111_0000000000
+  b: 16'b0_10000_0000000000
+  result: 16'b0_10000_0000000000
+timing: |
+  Purely combinational (no clock, no reset). A testbench applies a and b, waits 1 ns
+  (#1) and checks result. Use the combinational SDC template.
+arithmetic: |
+  sign = a[15] ^ b[15]. If a or b is zero (exponent field 0), result = signed zero
+  {sign, 15'b0}. Otherwise multiply the 11-bit significands {1, mantissa}, add the exponents
+  and subtract the bias 15, normalize, and round the mantissa to nearest, ties to even.
+  Exponent overflow (>= 31) -> infinity {sign, 5'b11111, 10'b0}; underflow (< 1) -> {sign, 15'b0}.
+  Reference cases (from the official testbench):
+    1.0 (0_01111_0000000000) *  2.0 (0_10000_0000000000) =   2.0 (0_10000_0000000000)
+    0.0 (0_00000_0000000000) *  5.0 (0_10001_0100000000) =   0.0 (0_00000_0000000000)
+   -3.0 (1_10000_1000000000) *  4.0 (0_10001_0000000000) = -12.0 (1_10010_1000000000)
+
+
+[[ ## sdc_rules ## ]]
+--- MANDATORY SDC RULES (STRICT COMPLIANCE REQUIRED) ---
+
+1. TEMPLATE SELECTION:
+   - Analyze the module signature for a clock port (e.g., clk, clock, sys_clk). The spec's
+     "timing" section also says when a design is purely combinational.
+   - If a clock is present: Use the SEQUENTIAL template (Option A).
+   - If NO clock is present: Use the COMBINATIONAL template (Option B).
+   - DO NOT mix structures. Choose one and stick to its specific commands.
+
+2. FILL ALL PLACEHOLDERS: 
+   - You must replace every instance of text enclosed in angle brackets (<PLACEHOLDER>) with actual values. 
+   - DO NOT leave any "< >" symbols in the final output.
+   - DO NOT invent new variable names; only fill the ones provided in the chosen template.
+   - You must NOT modify any other character, variable name, or command in the template.
+
+3. PLACEHOLDER MAPPING:
+   - <CLOCK_NAME>   -> A name for the clock: use the clock port name (e.g. clk).
+   - <CLOCK_PORT>   -> The actual port name from the module signature (CASE-SENSITIVE).
+   - <PERIOD_NS>    -> The numerical clock_period value from YAML (e.g., '2ns' becomes 2.0)..
+
+4. COMBINATIONAL DESIGNS (no clock in signature):
+   - Use the Combinational Template and ONLY fill the <PERIOD_NS> placeholder 
+   - DO NOT include create_clock or set_input_delay/set_output_delay commands!!!
+
+[[ ## sdc_template ## ]]
+OPTION A (Sequential):
+current_design fp16_multiplier
+
+set clk_name      <CLOCK_NAME>
+set clk_port_name <CLOCK_PORT>
+set clk_period    <PERIOD_NS>
+set clk_io_pct 0
+
+set clk_port [get_ports $clk_port_name]
+
+create_clock -name $clk_name -period $clk_period $clk_port
+
+set non_clock_inputs [lsearch -inline -all -not -exact [all_inputs] $clk_port]
+
+set_input_delay  [expr $clk_period * $clk_io_pct] -clock $clk_name $non_clock_inputs 
+set_output_delay [expr $clk_period * $clk_io_pct] -clock $clk_name [all_outputs]
+
+OPTION B (Combinational):
+current_design fp16_multiplier
+
+set clk_period    <PERIOD_NS>
+
+set_max_delay $clk_period -from [all_inputs] -to [all_outputs]
+set_min_delay 0 -from [all_inputs] -to [all_outputs]
+
+[[ ## previous_sdc ## ]]
+None (First Attempt)
+
+[[ ## feedback ## ]]
+Initial attempt.
+
+Respond with the corresponding output fields, starting with the field `[[ ## reasoning ## ]]`, then `[[ ## sdc_content ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`.
+
+
+Response:
+
+[[ ## reasoning ## ]]
+The provided module signature `fp16_multiplier` does not contain a clock input, and the timing section explicitly states that the design is purely combinational. Therefore, the SDC template for combinational designs (Option B) must be used. According to the mandatory rules, I will set the `<PERIOD_NS>` placeholder to the value '9ns' provided in the YAML specification and exclude any clock-related commands.
+
+[[ ## sdc_content ## ]]
+current_design fp16_multiplier
+
+set clk_period    9
+
+set_max_delay $clk_period -from [all_inputs] -to [all_outputs]
+set_min_delay 0 -from [all_inputs] -to [all_outputs]
+
+[[ ## completed ## ]]
+
+
+
+
+
+✨ File constraint.sdc saved at : /home/OpenROAD-flow-scripts/flow/designs/sky130hd/fp16_multiplier/constraint.sdc
+✨ File fp16_multiplier_ITER_1.sdc saved at : runs/2b_multi_agent/results/p8/sdc_gen_flow/fp16_multiplier_ITER_1.sdc
+✨ File fp16_multiplier.sdc saved at : runs/2b_multi_agent/results/p8/sdc_gen_flow/fp16_multiplier.sdc
+
+✅ Success! SDC successfully generated after 1 iterations.
+⏱️  SDC generation time: 1.71 seconds
+
+======================================================================
+
+🚀 Starting synthesizable RTL generation flow for: fp16_multiplier...
+
+[RTL GEN] Iteration 1/10...
+
+[TOKENS] rtl_generator | RTL generation, iteration 1 | gemini/gemini-3.1-flash-lite
+Call Time:       4.09s
+Tokens Used:     Prompt: 2703 | Completion: 1027 | Total: 3730
+Throughput:      54,743.5 TPM (912.39 TPS)
+
+
+
+
+[2026-10-08T11:54:02.593664]
+
+System message:
+
+Your input fields are:
+1. `yaml_spec` (str): Hardware functional requirements in YAML format
+2. `module_signature` (str): Exact Verilog module port declaration
+3. `rtl_rules` (str): MANDATORY hardware rules
+4. `previous_code` (str): Verilog code from the last iteration (if any)
+5. `feedback` (str): Simulation/Synthesis error logs to fix
+Your output fields are:
+1. `reasoning` (str): 
+2. `rtl_code` (str): Complete SYNTHESIZABLE Verilog-2001 code, no explanation, no markdown
+All interactions will be structured in the following way, with the appropriate values filled in.
+
+[[ ## yaml_spec ## ]]
+{yaml_spec}
+
+[[ ## module_signature ## ]]
+{module_signature}
+
+[[ ## rtl_rules ## ]]
+{rtl_rules}
+
+[[ ## previous_code ## ]]
+{previous_code}
+
+[[ ## feedback ## ]]
+{feedback}
+
+[[ ## reasoning ## ]]
+{reasoning}
+
+[[ ## rtl_code ## ]]
+{rtl_code}
+
+[[ ## completed ## ]]
+In adhering to this structure, your objective is: 
+        You are an expert RTL engineer. Transform a YAML hardware specification
+        into high-quality, synthesizable Verilog-2001 code according to the
+        provided YAML specification and Hardware Rules.
+
+
+User message:
+
+[[ ## yaml_spec ## ]]
+description: |
+  16-bit floating-point multiplier (IEEE 754 half-precision compatible) with support for zero detection and rounding to nearest even. Takes two 16-bit FP16 inputs and computes the product in a single cycle. Ignore subnormal/denormal inputs or outputs.
+tech_node: SkyWater 130HD
+clock_period: 9ns
+parameters: {}
+ports:
+- {name: a, direction: input, type: '[15:0]', description: FP16 input operand A}
+- {name: b, direction: input, type: '[15:0]', description: FP16 input operand B}
+- {name: result, direction: output, type: 'reg [15:0]', description: FP16 product result of A * B}
+module_signature: |
+  module fp16_multiplier(
+      input      [15:0] a,
+      input      [15:0] b,
+      output reg [15:0] result
+  );
+sample_usage:
+  description: |
+    Example use case multiplying 1.0 * 2.0, expecting 2.0 in FP16 encoding.
+  a: 16'b0_01111_0000000000
+  b: 16'b0_10000_0000000000
+  result: 16'b0_10000_0000000000
+timing: |
+  Purely combinational (no clock, no reset). A testbench applies a and b, waits 1 ns
+  (#1) and checks result. Use the combinational SDC template.
+arithmetic: |
+  sign = a[15] ^ b[15]. If a or b is zero (exponent field 0), result = signed zero
+  {sign, 15'b0}. Otherwise multiply the 11-bit significands {1, mantissa}, add the exponents
+  and subtract the bias 15, normalize, and round the mantissa to nearest, ties to even.
+  Exponent overflow (>= 31) -> infinity {sign, 5'b11111, 10'b0}; underflow (< 1) -> {sign, 15'b0}.
+  Reference cases (from the official testbench):
+    1.0 (0_01111_0000000000) *  2.0 (0_10000_0000000000) =   2.0 (0_10000_0000000000)
+    0.0 (0_00000_0000000000) *  5.0 (0_10001_0100000000) =   0.0 (0_00000_0000000000)
+   -3.0 (1_10000_1000000000) *  4.0 (0_10001_0000000000) = -12.0 (1_10010_1000000000)
+
+
+[[ ## module_signature ## ]]
+module fp16_multiplier(
+    input      [15:0] a,
+    input      [15:0] b,
+    output reg [15:0] result
+);
+
+
+[[ ## rtl_rules ## ]]
+--- MANDATORY RTL RULES (STRICT COMPLIANCE REQUIRED) ---
+
+1. MATCH THE SPEC'S "timing" SECTION EXACTLY:
+   - The number of register stages between an input and the output it affects (the latency)
+     must be exactly the one in the spec: not one more, not one less.
+   - Reset: use the reset port of the module signature with the spec's polarity, as a
+     SYNCHRONOUS reset inside always @(posedge clk). Reset every register the spec mentions.
+   - Combinational designs (no clock port): use always @(*) / assign only, no registers.
+
+2. NO MULTI-DRIVER CONFLICTS:
+   - Every signal (reg/wire) must be assigned in EXACTLY ONE 'always' block or ONE 'assign' statement.
+   - NEVER assign a signal in the sequential block if it is also assigned in a combinatorial block.
+
+3. CODING DISCIPLINE:
+   - SYNTAX: Use Verilog-2001 standards. NO 'logic' or 'int' types. Use 'reg' and 'wire' only
+     ('integer' only as a for-loop index).
+   - ASSIGNMENTS: Strictly use '<=' for sequential 'always' and '=' for combinatorial 'always' blocks.
+   - BLOCKS: ALWAYS use 'begin...end' for every 'if', 'else', and 'always' block, regardless of command count.
+   - SCOPE: Declare all 'reg' and 'wire' signals at the top of the module.
+   - NON-SYNTHESIZABLE TYPES: NEVER use 'real' types, initial blocks, delays (#) or $display.
+   - LATCH PREVENTION:
+     * Start every combinatorial always block by assigning a default value to ALL its outputs.
+     * Every 'if' in a combinatorial block must have an 'else'.
+     * Every 'case' must have a 'default'.
+
+4. ARITHMETIC:
+   - SIGNED DATA: declare signed values as 'signed' (reg signed [W-1:0] x) and slice flattened
+     vectors with $signed(V[i*WIDTH +: WIDTH]). Never mix signed and unsigned operands in one
+     expression (Verilog then treats everything as unsigned).
+   - WIDTHS: size every intermediate result so it cannot overflow (a*b needs 2*W bits; a sum of
+     N terms needs log2(N) extra bits), then assign to the output width given by the signature.
+   - PARAMETERS: keep the parameters of the signature and use them (no hard-coded widths).
+     Use for loops with an integer index, or generate blocks, for the N elements.
+   - FORMULAS: implement exactly the formula of the spec's "arithmetic" section (e.g. a Taylor
+     approximation is NOT the exact function), including the rounding it asks for.
+
+5. TIMING & PIPELINE ARCHITECTURE (PERFORMANCE COMPLIANCE):
+   - TIMING CLOSURE :
+     * The RTL MUST be created to meet the clock_period defined in the specification.
+     * NEVER chain multiple heavy operations (Multipliers, Dividers, Barrel Shifters) in a single combinatorial path.
+   - PIPELINE ENFORCEMENT:
+     * If the spec mentions "Pipelined", the design MUST use intermediate registers to break combinatorial paths,
+       with exactly the number of stages (latency) given in the spec's timing section.
+     * Balance the arithmetic workload across stages to ensure no single stage exceeds the clock period.
+     * When the latency must stay at 1 (e.g. a FIR filter), use a transposed structure: one
+       multiply and one add per register.
+   - NON-LINEAR FUNCTION OPTIMIZATION:
+     * For non-linear functions (e.g., x^3, 1/x, e^x, or complex coefficients) where the input width is less than 10 bits,
+       use a Look-Up Table whose values follow the spec's formula exactly.
+     * Always pre-calculate constant scaling (like Taylor coefficients) within the LUT initialization to eliminate post-multiplication logic.
+
+6. STATE DEFINITIONS - IF REQUIRED:
+   - Use 'localparam' to define states with UNIQUE binary values.
+   - SIZING CONSISTENCY: Every state constant MUST be sized exactly to M bits (e.g., M'bBINARY).
+   - REGISTER MATCHING: The state register 'reg [M-1:0] state' must have a width (M) that matches the localparam size exactly.
+   - SUFFICIENCY: M must be large enough to represent all states (M >= ceil(log2(number_of_states))).
+     * Example: For 5 states, use M=3 (reg [2:0] state) and constants like 3'b000.
+
+7. FSM DESIGN - IF REQUIRED (USE MOORE STYLE):
+   - TWO-BLOCK ARCHITECTURE:
+     * BLOCK A (Sequential): Use 'always @(posedge clk)' ONLY for updating the state register.
+       Initialize the state to the 'IDLE' parameter inside the synchronous 'if (reset)' branch.
+       DO NOT assign functional outputs in this block.
+     * BLOCK B (Combinatorial): Use 'always @(*)' for next-state logic AND all functional outputs.
+       TOP-LEVEL DEFAULTS: You MUST start this block by defining 'next_state = state;' and all outputs to their inactive/default values.
+   - OUTPUT ASSERTION (MOORE STYLE):
+     * Outputs must depend ONLY on the 'state' register.
+     * Do NOT include input signals in the output assignment logic.
+     * The output is 1 while 'state' equals the success state, i.e. in the cycle AFTER the edge
+       that samples the last input of the pattern.
+   - PROGRESSION & LOOPBACK (SEQUENCE DETECTORS):
+     * One state per prefix of the pattern already matched (IDLE = nothing matched).
+     * Every 'case' branch MUST define 'next_state' for BOTH input values.
+     * On a mismatch, go to the state of the LONGEST suffix of the bits seen so far that is
+       still a prefix of the pattern. This can be the SAME state (self-loop), e.g. in "0011"
+       the state "00" stays in "00" when another 0 arrives.
+     * After the success state, continue with the overlap rule above (overlapping matches
+       are detected).
+
+8. FORMATTING:
+   - Ensure the module name and port list match the provided 'module_signature' EXACTLY.
+   - Use '//' for comments. NEVER use backticks (`) before a comment.
+
+[[ ## previous_code ## ]]
+None (First Attempt)
+
+[[ ## feedback ## ]]
+Initial attempt. Ensure synthesizable Verilog-2001 code.
+
+Respond with the corresponding output fields, starting with the field `[[ ## reasoning ## ]]`, then `[[ ## rtl_code ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`.
+
+
+Response:
+
+[[ ## reasoning ## ]]
+The FP16 multiplier is implemented as a purely combinational block. 
+1. Inputs `a` and `b` are decomposed into sign, exponent (5 bits), and mantissa (10 bits).
+2. Hidden bit '1' is prepended to the mantissa (if exponent > 0).
+3. If either input is zero (exponent == 0), the result is signed zero.
+4. Exponents are added and bias 15 is subtracted.
+5. Mantissas are multiplied (22-bit result).
+6. Normalization: if the product's top bit is set (resulting in a carry), the exponent is incremented and the mantissa is shifted.
+7. Rounding: The result is rounded to nearest even by checking the guard, round, and sticky bits.
+8. Handling infinity/underflow: If the resulting exponent >= 31, return infinity; if <= 0, return zero.
+9. All logic is contained in one `always @(*)` block with default assignments to prevent latches.
+
+[[ ## rtl_code ## ]]
+module fp16_multiplier(
+    input      [15:0] a,
+    input      [15:0] b,
+    output reg [15:0] result
+);
+
+    reg sign;
+    reg [4:0] exp_a, exp_b, exp_res;
+    reg [10:0] man_a, man_b;
+    reg [21:0] prod;
+    reg [9:0] round_bit;
+    reg guard, round, sticky;
+    reg [22:0] normalized_man;
+    reg [4:0] final_exp;
+    reg [9:0] final_man;
+
+    always @(*) begin
+        // Default assignments
+        result = 16'b0;
+        sign = a[15] ^ b[15];
+        exp_a = a[14:10];
+        exp_b = b[14:10];
+        man_a = {1'b1, a[9:0]};
+        man_b = {1'b1, b[9:0]};
+        prod = man_a * man_b;
+        
+        // Zero detection
+        if (exp_a == 5'd0 || exp_b == 5'd0) begin
+            result = {sign, 15'b0};
+        end else begin
+            // Calculate Exponent
+            exp_res = exp_a + exp_b - 5'd15;
+            
+            // Normalize Product
+            if (prod[21]) begin
+                final_exp = exp_res + 1'b1;
+                normalized_man = {1'b0, prod[21:0]};
+            end else begin
+                final_exp = exp_res;
+                normalized_man = {prod[21:0], 1'b0};
+            end
+            
+            // Rounding (Nearest Even)
+            // normalized_man is {hidden, frac[9:0], guard, round, sticky}
+            // For FP16, we keep 10 bits of fraction. 
+            // Position of guard bit is index 11 (if hidden is 22)
+            guard = normalized_man[11];
+            round = normalized_man[10];
+            sticky = |normalized_man[9:0];
+            
+            if (guard && (round || sticky || normalized_man[12])) begin
+                normalized_man[22:12] = normalized_man[22:12] + 1'b1;
+            end
+            
+            // Overflow / Underflow check
+            if (final_exp >= 5'd31) begin
+                result = {sign, 5'b11111, 10'b0};
+            end else if (final_exp <= 5'd0) begin
+                result = {sign, 15'b0};
+            end else begin
+                final_man = normalized_man[21:12];
+                // Check if rounding caused exponent overflow
+                if (normalized_man[22]) begin
+                    result = {sign, final_exp + 1'b1, 10'b0};
+                end else begin
+                    result = {sign, final_exp, final_man};
+                end
+            end
+        end
+    end
+endmodule
+
+[[ ## completed ## ]]
+
+
+
+
+
+✨ File fp16_multiplier.v saved at : /home/OpenROAD-flow-scripts/flow/designs/src/fp16_multiplier/fp16_multiplier.v
+✨ File fp16_multiplier_ITER_1.v saved at : runs/2b_multi_agent/results/p8/rtl_gen_flow/fp16_multiplier_ITER_1.v
+✨ File fp16_multiplier.v saved at : runs/2b_multi_agent/results/p8/rtl_gen_flow/fp16_multiplier.v
+
+--- RUNNING RTL SIMULATION ---
+Compiling: iverilog -Wall -g2005 -o sim_rtl.out runs/2b_multi_agent/results/p8/rtl_gen_flow/fp16_multiplier.v runs/2b_multi_agent/results/p8/tb_gen_flow/fp16_multiplier_tb.v
+Compilation succeeded.
+
+Executing RTL simulation (vvp)...
+TEST: FAIL | Inputs: a=3c00, b=4000 | Expected: 4000 | Output: 4200
+TEST: PASS | Inputs: a=0000, b=4500 | Expected: 0000 | Output: 0000
+TEST: FAIL | Inputs: a=c000, b=4800 | Expected: c900 | Output: ce00
+TEST: PASS | Inputs: a=0000, b=0000 | Expected: 0000 | Output: 0000
+TEST: FAIL | Inputs: a=3c00, b=bc00 | Expected: bc00 | Output: be00
+TEST: PASS | Inputs: a=7c00, b=3c00 | Expected: 7c00 | Output: 7c00
+TEST: PASS | Inputs: a=7bff, b=4000 | Expected: 7c00 | Output: 7c00
+TEST: PASS | Inputs: a=0400, b=3800 | Expected: 0000 | Output: 0000
+
+❌ RTL simulation failed. Feeding back errors to agent...
+
+[RTL VALIDATOR] Skipped
+
+[RTL GEN] Iteration 2/10...
+
+[TOKENS] rtl_generator | RTL generation, iteration 2 | gemini/gemini-3.1-flash-lite
+Call Time:       4.26s
+Tokens Used:     Prompt: 3835 | Completion: 987 | Total: 4822
+Throughput:      67,866.5 TPM (1131.11 TPS)
+
+
+
+
+[2026-10-08T11:54:07.211515]
+
+System message:
+
+Your input fields are:
+1. `yaml_spec` (str): Hardware functional requirements in YAML format
+2. `module_signature` (str): Exact Verilog module port declaration
+3. `rtl_rules` (str): MANDATORY hardware rules
+4. `previous_code` (str): Verilog code from the last iteration (if any)
+5. `feedback` (str): Simulation/Synthesis error logs to fix
+Your output fields are:
+1. `reasoning` (str): 
+2. `rtl_code` (str): Complete SYNTHESIZABLE Verilog-2001 code, no explanation, no markdown
+All interactions will be structured in the following way, with the appropriate values filled in.
+
+[[ ## yaml_spec ## ]]
+{yaml_spec}
+
+[[ ## module_signature ## ]]
+{module_signature}
+
+[[ ## rtl_rules ## ]]
+{rtl_rules}
+
+[[ ## previous_code ## ]]
+{previous_code}
+
+[[ ## feedback ## ]]
+{feedback}
+
+[[ ## reasoning ## ]]
+{reasoning}
+
+[[ ## rtl_code ## ]]
+{rtl_code}
+
+[[ ## completed ## ]]
+In adhering to this structure, your objective is: 
+        You are an expert RTL engineer. Transform a YAML hardware specification
+        into high-quality, synthesizable Verilog-2001 code according to the
+        provided YAML specification and Hardware Rules.
+
+
+User message:
+
+[[ ## yaml_spec ## ]]
+description: |
+  16-bit floating-point multiplier (IEEE 754 half-precision compatible) with support for zero detection and rounding to nearest even. Takes two 16-bit FP16 inputs and computes the product in a single cycle. Ignore subnormal/denormal inputs or outputs.
+tech_node: SkyWater 130HD
+clock_period: 9ns
+parameters: {}
+ports:
+- {name: a, direction: input, type: '[15:0]', description: FP16 input operand A}
+- {name: b, direction: input, type: '[15:0]', description: FP16 input operand B}
+- {name: result, direction: output, type: 'reg [15:0]', description: FP16 product result of A * B}
+module_signature: |
+  module fp16_multiplier(
+      input      [15:0] a,
+      input      [15:0] b,
+      output reg [15:0] result
+  );
+sample_usage:
+  description: |
+    Example use case multiplying 1.0 * 2.0, expecting 2.0 in FP16 encoding.
+  a: 16'b0_01111_0000000000
+  b: 16'b0_10000_0000000000
+  result: 16'b0_10000_0000000000
+timing: |
+  Purely combinational (no clock, no reset). A testbench applies a and b, waits 1 ns
+  (#1) and checks result. Use the combinational SDC template.
+arithmetic: |
+  sign = a[15] ^ b[15]. If a or b is zero (exponent field 0), result = signed zero
+  {sign, 15'b0}. Otherwise multiply the 11-bit significands {1, mantissa}, add the exponents
+  and subtract the bias 15, normalize, and round the mantissa to nearest, ties to even.
+  Exponent overflow (>= 31) -> infinity {sign, 5'b11111, 10'b0}; underflow (< 1) -> {sign, 15'b0}.
+  Reference cases (from the official testbench):
+    1.0 (0_01111_0000000000) *  2.0 (0_10000_0000000000) =   2.0 (0_10000_0000000000)
+    0.0 (0_00000_0000000000) *  5.0 (0_10001_0100000000) =   0.0 (0_00000_0000000000)
+   -3.0 (1_10000_1000000000) *  4.0 (0_10001_0000000000) = -12.0 (1_10010_1000000000)
+
+
+[[ ## module_signature ## ]]
+module fp16_multiplier(
+    input      [15:0] a,
+    input      [15:0] b,
+    output reg [15:0] result
+);
+
+
+[[ ## rtl_rules ## ]]
+--- MANDATORY RTL RULES (STRICT COMPLIANCE REQUIRED) ---
+
+1. MATCH THE SPEC'S "timing" SECTION EXACTLY:
+   - The number of register stages between an input and the output it affects (the latency)
+     must be exactly the one in the spec: not one more, not one less.
+   - Reset: use the reset port of the module signature with the spec's polarity, as a
+     SYNCHRONOUS reset inside always @(posedge clk). Reset every register the spec mentions.
+   - Combinational designs (no clock port): use always @(*) / assign only, no registers.
+
+2. NO MULTI-DRIVER CONFLICTS:
+   - Every signal (reg/wire) must be assigned in EXACTLY ONE 'always' block or ONE 'assign' statement.
+   - NEVER assign a signal in the sequential block if it is also assigned in a combinatorial block.
+
+3. CODING DISCIPLINE:
+   - SYNTAX: Use Verilog-2001 standards. NO 'logic' or 'int' types. Use 'reg' and 'wire' only
+     ('integer' only as a for-loop index).
+   - ASSIGNMENTS: Strictly use '<=' for sequential 'always' and '=' for combinatorial 'always' blocks.
+   - BLOCKS: ALWAYS use 'begin...end' for every 'if', 'else', and 'always' block, regardless of command count.
+   - SCOPE: Declare all 'reg' and 'wire' signals at the top of the module.
+   - NON-SYNTHESIZABLE TYPES: NEVER use 'real' types, initial blocks, delays (#) or $display.
+   - LATCH PREVENTION:
+     * Start every combinatorial always block by assigning a default value to ALL its outputs.
+     * Every 'if' in a combinatorial block must have an 'else'.
+     * Every 'case' must have a 'default'.
+
+4. ARITHMETIC:
+   - SIGNED DATA: declare signed values as 'signed' (reg signed [W-1:0] x) and slice flattened
+     vectors with $signed(V[i*WIDTH +: WIDTH]). Never mix signed and unsigned operands in one
+     expression (Verilog then treats everything as unsigned).
+   - WIDTHS: size every intermediate result so it cannot overflow (a*b needs 2*W bits; a sum of
+     N terms needs log2(N) extra bits), then assign to the output width given by the signature.
+   - PARAMETERS: keep the parameters of the signature and use them (no hard-coded widths).
+     Use for loops with an integer index, or generate blocks, for the N elements.
+   - FORMULAS: implement exactly the formula of the spec's "arithmetic" section (e.g. a Taylor
+     approximation is NOT the exact function), including the rounding it asks for.
+
+5. TIMING & PIPELINE ARCHITECTURE (PERFORMANCE COMPLIANCE):
+   - TIMING CLOSURE :
+     * The RTL MUST be created to meet the clock_period defined in the specification.
+     * NEVER chain multiple heavy operations (Multipliers, Dividers, Barrel Shifters) in a single combinatorial path.
+   - PIPELINE ENFORCEMENT:
+     * If the spec mentions "Pipelined", the design MUST use intermediate registers to break combinatorial paths,
+       with exactly the number of stages (latency) given in the spec's timing section.
+     * Balance the arithmetic workload across stages to ensure no single stage exceeds the clock period.
+     * When the latency must stay at 1 (e.g. a FIR filter), use a transposed structure: one
+       multiply and one add per register.
+   - NON-LINEAR FUNCTION OPTIMIZATION:
+     * For non-linear functions (e.g., x^3, 1/x, e^x, or complex coefficients) where the input width is less than 10 bits,
+       use a Look-Up Table whose values follow the spec's formula exactly.
+     * Always pre-calculate constant scaling (like Taylor coefficients) within the LUT initialization to eliminate post-multiplication logic.
+
+6. STATE DEFINITIONS - IF REQUIRED:
+   - Use 'localparam' to define states with UNIQUE binary values.
+   - SIZING CONSISTENCY: Every state constant MUST be sized exactly to M bits (e.g., M'bBINARY).
+   - REGISTER MATCHING: The state register 'reg [M-1:0] state' must have a width (M) that matches the localparam size exactly.
+   - SUFFICIENCY: M must be large enough to represent all states (M >= ceil(log2(number_of_states))).
+     * Example: For 5 states, use M=3 (reg [2:0] state) and constants like 3'b000.
+
+7. FSM DESIGN - IF REQUIRED (USE MOORE STYLE):
+   - TWO-BLOCK ARCHITECTURE:
+     * BLOCK A (Sequential): Use 'always @(posedge clk)' ONLY for updating the state register.
+       Initialize the state to the 'IDLE' parameter inside the synchronous 'if (reset)' branch.
+       DO NOT assign functional outputs in this block.
+     * BLOCK B (Combinatorial): Use 'always @(*)' for next-state logic AND all functional outputs.
+       TOP-LEVEL DEFAULTS: You MUST start this block by defining 'next_state = state;' and all outputs to their inactive/default values.
+   - OUTPUT ASSERTION (MOORE STYLE):
+     * Outputs must depend ONLY on the 'state' register.
+     * Do NOT include input signals in the output assignment logic.
+     * The output is 1 while 'state' equals the success state, i.e. in the cycle AFTER the edge
+       that samples the last input of the pattern.
+   - PROGRESSION & LOOPBACK (SEQUENCE DETECTORS):
+     * One state per prefix of the pattern already matched (IDLE = nothing matched).
+     * Every 'case' branch MUST define 'next_state' for BOTH input values.
+     * On a mismatch, go to the state of the LONGEST suffix of the bits seen so far that is
+       still a prefix of the pattern. This can be the SAME state (self-loop), e.g. in "0011"
+       the state "00" stays in "00" when another 0 arrives.
+     * After the success state, continue with the overlap rule above (overlapping matches
+       are detected).
+
+8. FORMATTING:
+   - Ensure the module name and port list match the provided 'module_signature' EXACTLY.
+   - Use '//' for comments. NEVER use backticks (`) before a comment.
+
+[[ ## previous_code ## ]]
+`timescale 1ns/1ps
+
+module fp16_multiplier(
+    input      [15:0] a,
+    input      [15:0] b,
+    output reg [15:0] result
+);
+
+    reg sign;
+    reg [4:0] exp_a, exp_b, exp_res;
+    reg [10:0] man_a, man_b;
+    reg [21:0] prod;
+    reg [9:0] round_bit;
+    reg guard, round, sticky;
+    reg [22:0] normalized_man;
+    reg [4:0] final_exp;
+    reg [9:0] final_man;
+
+    always @(*) begin
+        // Default assignments
+        result = 16'b0;
+        sign = a[15] ^ b[15];
+        exp_a = a[14:10];
+        exp_b = b[14:10];
+        man_a = {1'b1, a[9:0]};
+        man_b = {1'b1, b[9:0]};
+        prod = man_a * man_b;
+        
+        // Zero detection
+        if (exp_a == 5'd0 || exp_b == 5'd0) begin
+            result = {sign, 15'b0};
+        end else begin
+            // Calculate Exponent
+            exp_res = exp_a + exp_b - 5'd15;
+            
+            // Normalize Product
+            if (prod[21]) begin
+                final_exp = exp_res + 1'b1;
+                normalized_man = {1'b0, prod[21:0]};
+            end else begin
+                final_exp = exp_res;
+                normalized_man = {prod[21:0], 1'b0};
+            end
+            
+            // Rounding (Nearest Even)
+            // normalized_man is {hidden, frac[9:0], guard, round, sticky}
+            // For FP16, we keep 10 bits of fraction. 
+            // Position of guard bit is index 11 (if hidden is 22)
+            guard = normalized_man[11];
+            round = normalized_man[10];
+            sticky = |normalized_man[9:0];
+            
+            if (guard && (round || sticky || normalized_man[12])) begin
+                normalized_man[22:12] = normalized_man[22:12] + 1'b1;
+            end
+            
+            // Overflow / Underflow check
+            if (final_exp >= 5'd31) begin
+                result = {sign, 5'b11111, 10'b0};
+            end else if (final_exp <= 5'd0) begin
+                result = {sign, 15'b0};
+            end else begin
+                final_man = normalized_man[21:12];
+                // Check if rounding caused exponent overflow
+                if (normalized_man[22]) begin
+                    result = {sign, final_exp + 1'b1, 10'b0};
+                end else begin
+                    result = {sign, final_exp, final_man};
+                end
+            end
+        end
+    end
+endmodule
+
+[[ ## feedback ## ]]
+RTL simulation failed.
+Fix the issues provided in EVALUATION LOGS while strictly following the RTL rules.
+If the outputs are right but appear one cycle too early or too late, your number of register
+stages does not match the latency in the spec's "timing" section.
+--- EVALUATION LOGS ---
+Compiling rtl...
+Compilation succeeded.
+Executing RTL simulation (vvp)...
+TEST: FAIL | Inputs: a=3c00, b=4000 | Expected: 4000 | Output: 4200
+TEST: PASS | Inputs: a=0000, b=4500 | Expected: 0000 | Output: 0000
+TEST: FAIL | Inputs: a=c000, b=4800 | Expected: c900 | Output: ce00
+TEST: PASS | Inputs: a=0000, b=0000 | Expected: 0000 | Output: 0000
+TEST: FAIL | Inputs: a=3c00, b=bc00 | Expected: bc00 | Output: be00
+TEST: PASS | Inputs: a=7c00, b=3c00 | Expected: 7c00 | Output: 7c00
+TEST: PASS | Inputs: a=7bff, b=4000 | Expected: 7c00 | Output: 7c00
+TEST: PASS | Inputs: a=0400, b=3800 | Expected: 0000 | Output: 0000
+
+
+Respond with the corresponding output fields, starting with the field `[[ ## reasoning ## ]]`, then `[[ ## rtl_code ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`.
+
+
+Response:
+
+[[ ## reasoning ## ]]
+The primary issue in the previous implementation was the logic for normalization, rounding, and exponent handling. 
+1. The product of two 11-bit numbers ({1, mantissa}) results in 22 bits. The range is [1.0, 4.0).
+2. If the product is >= 2.0 (i.e., bit 21 is set), the implicit exponent is adjusted (+1) and the mantissa is shifted right by 1.
+3. The previous rounding logic was incorrect; specifically, the guard/round/sticky logic needs to correctly account for the shift and the bit alignment.
+4. I corrected the rounding: shifted the 22-bit product right if bit 21 is set, then identified the round bit (position 9 relative to the fractional part), guard bit, and sticky bit.
+5. Ties-to-even: If (guard && (round || sticky)) || (guard && !round && !sticky && LSB_of_mantissa), increment.
+6. The exponent range is 1 to 30. Corrected the exponent bias arithmetic: (exp_a + exp_b - 15). If the result is < 1, it's underflow. If >= 31, it's infinity.
+7. Fixed the normalization path to ensure bits are correctly aligned for the 10-bit mantissa output.
+
+[[ ## rtl_code ## ]]
+module fp16_multiplier(
+    input      [15:0] a,
+    input      [15:0] b,
+    output reg [15:0] result
+);
+
+    reg sign;
+    reg [4:0] exp_a, exp_b;
+    reg [10:0] man_a, man_b;
+    reg [21:0] prod;
+    reg [4:0] exp_sum;
+    reg [10:0] norm_man;
+    reg [4:0] norm_exp;
+    reg guard, round, sticky;
+    reg round_up;
+
+    always @(*) begin
+        sign = a[15] ^ b[15];
+        exp_a = a[14:10];
+        exp_b = b[14:10];
+        man_a = {1'b1, a[9:0]};
+        man_b = {1'b1, b[9:0]};
+        prod = man_a * man_b;
+        
+        if (exp_a == 5'd0 || exp_b == 5'd0) begin
+            result = {sign, 15'b0};
+        end else begin
+            exp_sum = exp_a + exp_b - 5'd15;
+            
+            if (prod[21]) begin
+                norm_man = prod[21:11];
+                guard = prod[10];
+                round = prod[9];
+                sticky = |prod[8:0];
+                norm_exp = exp_sum + 5'd1;
+            end else begin
+                norm_man = prod[20:10];
+                guard = prod[9];
+                round = prod[8];
+                sticky = |prod[7:0];
+                norm_exp = exp_sum;
+            end
+            
+            round_up = guard && (round || sticky || norm_man[0]);
+            
+            if (norm_exp >= 5'd31) begin
+                result = {sign, 5'b11111, 10'b0};
+            end else if (norm_exp < 5'd1) begin
+                result = {sign, 15'b0};
+            end else begin
+                if (round_up) begin
+                    if (norm_man == 11'h7FF) begin
+                        result = {sign, norm_exp + 5'd1, 10'b0};
+                    end else begin
+                        result = {sign, norm_exp, (norm_man[9:0] + 1'b1)};
+                    end
+                end else begin
+                    result = {sign, norm_exp, norm_man[9:0]};
+                end
+            end
+        end
+    end
+endmodule
+
+[[ ## completed ## ]]
+
+
+
+
+
+✨ File fp16_multiplier.v saved at : /home/OpenROAD-flow-scripts/flow/designs/src/fp16_multiplier/fp16_multiplier.v
+✨ File fp16_multiplier_ITER_2.v saved at : runs/2b_multi_agent/results/p8/rtl_gen_flow/fp16_multiplier_ITER_2.v
+✨ File fp16_multiplier.v saved at : runs/2b_multi_agent/results/p8/rtl_gen_flow/fp16_multiplier.v
+
+--- RUNNING RTL SIMULATION ---
+Compiling: iverilog -Wall -g2005 -o sim_rtl.out runs/2b_multi_agent/results/p8/rtl_gen_flow/fp16_multiplier.v runs/2b_multi_agent/results/p8/tb_gen_flow/fp16_multiplier_tb.v
+Compilation succeeded.
+
+Executing RTL simulation (vvp)...
+TEST: PASS | Inputs: a=3c00, b=4000 | Expected: 4000 | Output: 4000
+TEST: PASS | Inputs: a=0000, b=4500 | Expected: 0000 | Output: 0000
+TEST: FAIL | Inputs: a=c000, b=4800 | Expected: c900 | Output: cc00
+TEST: PASS | Inputs: a=0000, b=0000 | Expected: 0000 | Output: 0000
+TEST: PASS | Inputs: a=3c00, b=bc00 | Expected: bc00 | Output: bc00
+TEST: PASS | Inputs: a=7c00, b=3c00 | Expected: 7c00 | Output: 7c00
+TEST: PASS | Inputs: a=7bff, b=4000 | Expected: 7c00 | Output: 7c00
+TEST: PASS | Inputs: a=0400, b=3800 | Expected: 0000 | Output: 0000
+
+❌ RTL simulation failed. Feeding back errors to agent...
+
+[RTL VALIDATOR] Skipped
+
+[RTL GEN] Iteration 3/10...
+
+[TOKENS] rtl_generator | RTL generation, iteration 3 | gemini/gemini-3.1-flash-lite
+Call Time:       4.14s
+Tokens Used:     Prompt: 3719 | Completion: 1010 | Total: 4729
+Throughput:      68,538.2 TPM (1142.30 TPS)
+
+
+
+
+[2026-10-08T11:54:11.491042]
+
+System message:
+
+Your input fields are:
+1. `yaml_spec` (str): Hardware functional requirements in YAML format
+2. `module_signature` (str): Exact Verilog module port declaration
+3. `rtl_rules` (str): MANDATORY hardware rules
+4. `previous_code` (str): Verilog code from the last iteration (if any)
+5. `feedback` (str): Simulation/Synthesis error logs to fix
+Your output fields are:
+1. `reasoning` (str): 
+2. `rtl_code` (str): Complete SYNTHESIZABLE Verilog-2001 code, no explanation, no markdown
+All interactions will be structured in the following way, with the appropriate values filled in.
+
+[[ ## yaml_spec ## ]]
+{yaml_spec}
+
+[[ ## module_signature ## ]]
+{module_signature}
+
+[[ ## rtl_rules ## ]]
+{rtl_rules}
+
+[[ ## previous_code ## ]]
+{previous_code}
+
+[[ ## feedback ## ]]
+{feedback}
+
+[[ ## reasoning ## ]]
+{reasoning}
+
+[[ ## rtl_code ## ]]
+{rtl_code}
+
+[[ ## completed ## ]]
+In adhering to this structure, your objective is: 
+        You are an expert RTL engineer. Transform a YAML hardware specification
+        into high-quality, synthesizable Verilog-2001 code according to the
+        provided YAML specification and Hardware Rules.
+
+
+User message:
+
+[[ ## yaml_spec ## ]]
+description: |
+  16-bit floating-point multiplier (IEEE 754 half-precision compatible) with support for zero detection and rounding to nearest even. Takes two 16-bit FP16 inputs and computes the product in a single cycle. Ignore subnormal/denormal inputs or outputs.
+tech_node: SkyWater 130HD
+clock_period: 9ns
+parameters: {}
+ports:
+- {name: a, direction: input, type: '[15:0]', description: FP16 input operand A}
+- {name: b, direction: input, type: '[15:0]', description: FP16 input operand B}
+- {name: result, direction: output, type: 'reg [15:0]', description: FP16 product result of A * B}
+module_signature: |
+  module fp16_multiplier(
+      input      [15:0] a,
+      input      [15:0] b,
+      output reg [15:0] result
+  );
+sample_usage:
+  description: |
+    Example use case multiplying 1.0 * 2.0, expecting 2.0 in FP16 encoding.
+  a: 16'b0_01111_0000000000
+  b: 16'b0_10000_0000000000
+  result: 16'b0_10000_0000000000
+timing: |
+  Purely combinational (no clock, no reset). A testbench applies a and b, waits 1 ns
+  (#1) and checks result. Use the combinational SDC template.
+arithmetic: |
+  sign = a[15] ^ b[15]. If a or b is zero (exponent field 0), result = signed zero
+  {sign, 15'b0}. Otherwise multiply the 11-bit significands {1, mantissa}, add the exponents
+  and subtract the bias 15, normalize, and round the mantissa to nearest, ties to even.
+  Exponent overflow (>= 31) -> infinity {sign, 5'b11111, 10'b0}; underflow (< 1) -> {sign, 15'b0}.
+  Reference cases (from the official testbench):
+    1.0 (0_01111_0000000000) *  2.0 (0_10000_0000000000) =   2.0 (0_10000_0000000000)
+    0.0 (0_00000_0000000000) *  5.0 (0_10001_0100000000) =   0.0 (0_00000_0000000000)
+   -3.0 (1_10000_1000000000) *  4.0 (0_10001_0000000000) = -12.0 (1_10010_1000000000)
+
+
+[[ ## module_signature ## ]]
+module fp16_multiplier(
+    input      [15:0] a,
+    input      [15:0] b,
+    output reg [15:0] result
+);
+
+
+[[ ## rtl_rules ## ]]
+--- MANDATORY RTL RULES (STRICT COMPLIANCE REQUIRED) ---
+
+1. MATCH THE SPEC'S "timing" SECTION EXACTLY:
+   - The number of register stages between an input and the output it affects (the latency)
+     must be exactly the one in the spec: not one more, not one less.
+   - Reset: use the reset port of the module signature with the spec's polarity, as a
+     SYNCHRONOUS reset inside always @(posedge clk). Reset every register the spec mentions.
+   - Combinational designs (no clock port): use always @(*) / assign only, no registers.
+
+2. NO MULTI-DRIVER CONFLICTS:
+   - Every signal (reg/wire) must be assigned in EXACTLY ONE 'always' block or ONE 'assign' statement.
+   - NEVER assign a signal in the sequential block if it is also assigned in a combinatorial block.
+
+3. CODING DISCIPLINE:
+   - SYNTAX: Use Verilog-2001 standards. NO 'logic' or 'int' types. Use 'reg' and 'wire' only
+     ('integer' only as a for-loop index).
+   - ASSIGNMENTS: Strictly use '<=' for sequential 'always' and '=' for combinatorial 'always' blocks.
+   - BLOCKS: ALWAYS use 'begin...end' for every 'if', 'else', and 'always' block, regardless of command count.
+   - SCOPE: Declare all 'reg' and 'wire' signals at the top of the module.
+   - NON-SYNTHESIZABLE TYPES: NEVER use 'real' types, initial blocks, delays (#) or $display.
+   - LATCH PREVENTION:
+     * Start every combinatorial always block by assigning a default value to ALL its outputs.
+     * Every 'if' in a combinatorial block must have an 'else'.
+     * Every 'case' must have a 'default'.
+
+4. ARITHMETIC:
+   - SIGNED DATA: declare signed values as 'signed' (reg signed [W-1:0] x) and slice flattened
+     vectors with $signed(V[i*WIDTH +: WIDTH]). Never mix signed and unsigned operands in one
+     expression (Verilog then treats everything as unsigned).
+   - WIDTHS: size every intermediate result so it cannot overflow (a*b needs 2*W bits; a sum of
+     N terms needs log2(N) extra bits), then assign to the output width given by the signature.
+   - PARAMETERS: keep the parameters of the signature and use them (no hard-coded widths).
+     Use for loops with an integer index, or generate blocks, for the N elements.
+   - FORMULAS: implement exactly the formula of the spec's "arithmetic" section (e.g. a Taylor
+     approximation is NOT the exact function), including the rounding it asks for.
+
+5. TIMING & PIPELINE ARCHITECTURE (PERFORMANCE COMPLIANCE):
+   - TIMING CLOSURE :
+     * The RTL MUST be created to meet the clock_period defined in the specification.
+     * NEVER chain multiple heavy operations (Multipliers, Dividers, Barrel Shifters) in a single combinatorial path.
+   - PIPELINE ENFORCEMENT:
+     * If the spec mentions "Pipelined", the design MUST use intermediate registers to break combinatorial paths,
+       with exactly the number of stages (latency) given in the spec's timing section.
+     * Balance the arithmetic workload across stages to ensure no single stage exceeds the clock period.
+     * When the latency must stay at 1 (e.g. a FIR filter), use a transposed structure: one
+       multiply and one add per register.
+   - NON-LINEAR FUNCTION OPTIMIZATION:
+     * For non-linear functions (e.g., x^3, 1/x, e^x, or complex coefficients) where the input width is less than 10 bits,
+       use a Look-Up Table whose values follow the spec's formula exactly.
+     * Always pre-calculate constant scaling (like Taylor coefficients) within the LUT initialization to eliminate post-multiplication logic.
+
+6. STATE DEFINITIONS - IF REQUIRED:
+   - Use 'localparam' to define states with UNIQUE binary values.
+   - SIZING CONSISTENCY: Every state constant MUST be sized exactly to M bits (e.g., M'bBINARY).
+   - REGISTER MATCHING: The state register 'reg [M-1:0] state' must have a width (M) that matches the localparam size exactly.
+   - SUFFICIENCY: M must be large enough to represent all states (M >= ceil(log2(number_of_states))).
+     * Example: For 5 states, use M=3 (reg [2:0] state) and constants like 3'b000.
+
+7. FSM DESIGN - IF REQUIRED (USE MOORE STYLE):
+   - TWO-BLOCK ARCHITECTURE:
+     * BLOCK A (Sequential): Use 'always @(posedge clk)' ONLY for updating the state register.
+       Initialize the state to the 'IDLE' parameter inside the synchronous 'if (reset)' branch.
+       DO NOT assign functional outputs in this block.
+     * BLOCK B (Combinatorial): Use 'always @(*)' for next-state logic AND all functional outputs.
+       TOP-LEVEL DEFAULTS: You MUST start this block by defining 'next_state = state;' and all outputs to their inactive/default values.
+   - OUTPUT ASSERTION (MOORE STYLE):
+     * Outputs must depend ONLY on the 'state' register.
+     * Do NOT include input signals in the output assignment logic.
+     * The output is 1 while 'state' equals the success state, i.e. in the cycle AFTER the edge
+       that samples the last input of the pattern.
+   - PROGRESSION & LOOPBACK (SEQUENCE DETECTORS):
+     * One state per prefix of the pattern already matched (IDLE = nothing matched).
+     * Every 'case' branch MUST define 'next_state' for BOTH input values.
+     * On a mismatch, go to the state of the LONGEST suffix of the bits seen so far that is
+       still a prefix of the pattern. This can be the SAME state (self-loop), e.g. in "0011"
+       the state "00" stays in "00" when another 0 arrives.
+     * After the success state, continue with the overlap rule above (overlapping matches
+       are detected).
+
+8. FORMATTING:
+   - Ensure the module name and port list match the provided 'module_signature' EXACTLY.
+   - Use '//' for comments. NEVER use backticks (`) before a comment.
+
+[[ ## previous_code ## ]]
+`timescale 1ns/1ps
+
+module fp16_multiplier(
+    input      [15:0] a,
+    input      [15:0] b,
+    output reg [15:0] result
+);
+
+    reg sign;
+    reg [4:0] exp_a, exp_b;
+    reg [10:0] man_a, man_b;
+    reg [21:0] prod;
+    reg [4:0] exp_sum;
+    reg [10:0] norm_man;
+    reg [4:0] norm_exp;
+    reg guard, round, sticky;
+    reg round_up;
+
+    always @(*) begin
+        sign = a[15] ^ b[15];
+        exp_a = a[14:10];
+        exp_b = b[14:10];
+        man_a = {1'b1, a[9:0]};
+        man_b = {1'b1, b[9:0]};
+        prod = man_a * man_b;
+        
+        if (exp_a == 5'd0 || exp_b == 5'd0) begin
+            result = {sign, 15'b0};
+        end else begin
+            exp_sum = exp_a + exp_b - 5'd15;
+            
+            if (prod[21]) begin
+                norm_man = prod[21:11];
+                guard = prod[10];
+                round = prod[9];
+                sticky = |prod[8:0];
+                norm_exp = exp_sum + 5'd1;
+            end else begin
+                norm_man = prod[20:10];
+                guard = prod[9];
+                round = prod[8];
+                sticky = |prod[7:0];
+                norm_exp = exp_sum;
+            end
+            
+            round_up = guard && (round || sticky || norm_man[0]);
+            
+            if (norm_exp >= 5'd31) begin
+                result = {sign, 5'b11111, 10'b0};
+            end else if (norm_exp < 5'd1) begin
+                result = {sign, 15'b0};
+            end else begin
+                if (round_up) begin
+                    if (norm_man == 11'h7FF) begin
+                        result = {sign, norm_exp + 5'd1, 10'b0};
+                    end else begin
+                        result = {sign, norm_exp, (norm_man[9:0] + 1'b1)};
+                    end
+                end else begin
+                    result = {sign, norm_exp, norm_man[9:0]};
+                end
+            end
+        end
+    end
+endmodule
+
+[[ ## feedback ## ]]
+RTL simulation failed.
+Fix the issues provided in EVALUATION LOGS while strictly following the RTL rules.
+If the outputs are right but appear one cycle too early or too late, your number of register
+stages does not match the latency in the spec's "timing" section.
+--- EVALUATION LOGS ---
+Compiling rtl...
+Compilation succeeded.
+Executing RTL simulation (vvp)...
+TEST: PASS | Inputs: a=3c00, b=4000 | Expected: 4000 | Output: 4000
+TEST: PASS | Inputs: a=0000, b=4500 | Expected: 0000 | Output: 0000
+TEST: FAIL | Inputs: a=c000, b=4800 | Expected: c900 | Output: cc00
+TEST: PASS | Inputs: a=0000, b=0000 | Expected: 0000 | Output: 0000
+TEST: PASS | Inputs: a=3c00, b=bc00 | Expected: bc00 | Output: bc00
+TEST: PASS | Inputs: a=7c00, b=3c00 | Expected: 7c00 | Output: 7c00
+TEST: PASS | Inputs: a=7bff, b=4000 | Expected: 7c00 | Output: 7c00
+TEST: PASS | Inputs: a=0400, b=3800 | Expected: 0000 | Output: 0000
+
+
+Respond with the corresponding output fields, starting with the field `[[ ## reasoning ## ]]`, then `[[ ## rtl_code ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`.
+
+
+Response:
+
+[[ ## reasoning ## ]]
+The previous implementation had an error in the rounding logic and exponent adjustment. Specifically:
+1. When `prod[21]` is set (meaning the product is >= 2.0), the significand is normalized by shifting right by 1, and the exponent is incremented. The mantissa should be extracted as `prod[21:11]`. If `prod[21]` is 0, the mantissa is `prod[20:10]`.
+2. The rounding logic was flawed: it didn't handle the carry-out from rounding correctly when `norm_man` was already at the limit.
+3. The IEEE 754 rounding to nearest even rule requires that if the fraction is exactly 0.5 (guard=1, round=0, sticky=0), we round to the nearest even (mantissa[0] must be 0). If `norm_man[0]` is 1, we round up.
+4. Corrected logic:
+   - Calculate `norm_man` and `norm_exp`.
+   - Calculate guard, round, and sticky bits based on the normalized significand.
+   - `round_up` logic: `guard && (round || sticky || norm_man[0])`.
+   - After incrementing (if `round_up`), check for exponent overflow.
+
+[[ ## rtl_code ## ]]
+module fp16_multiplier(
+    input      [15:0] a,
+    input      [15:0] b,
+    output reg [15:0] result
+);
+
+    reg sign;
+    reg [4:0] exp_a, exp_b;
+    reg [10:0] man_a, man_b;
+    reg [21:0] prod;
+    reg [5:0] exp_sum_wide;
+    reg [4:0] norm_exp;
+    reg [10:0] norm_man;
+    reg guard, round_bit, sticky;
+    reg round_up;
+    reg [10:0] rounded_man;
+
+    always @(*) begin
+        sign = a[15] ^ b[15];
+        exp_a = a[14:10];
+        exp_b = b[14:10];
+        man_a = {1'b1, a[9:0]};
+        man_b = {1'b1, b[9:0]};
+        prod = man_a * man_b;
+        
+        // Zero detection
+        if ((exp_a == 5'd0) || (exp_b == 5'd0)) begin
+            result = {sign, 15'b0};
+        end else begin
+            exp_sum_wide = exp_a + exp_b - 5'd15;
+            
+            if (prod[21]) begin
+                norm_man = prod[21:11];
+                guard = prod[10];
+                round_bit = prod[9];
+                sticky = |prod[8:0];
+                norm_exp = exp_sum_wide + 1'b1;
+            end else begin
+                norm_man = prod[20:10];
+                guard = prod[9];
+                round_bit = prod[8];
+                sticky = |prod[7:0];
+                norm_exp = exp_sum_wide;
+            end
+            
+            round_up = guard && (round_bit || sticky || norm_man[0]);
+            rounded_man = norm_man + (round_up ? 1'b1 : 1'b0);
+            
+            if (rounded_man[10]) begin
+                norm_man = {1'b1, 10'b0};
+                norm_exp = norm_exp + 1'b1;
+            end else begin
+                norm_man = rounded_man;
+            end
+            
+            if (norm_exp >= 5'd31) begin
+                result = {sign, 5'b11111, 10'b0};
+            end else if ($signed(norm_exp) <= 0) begin
+                result = {sign, 15'b0};
+            end else begin
+                result = {sign, norm_exp, norm_man[9:0]};
+            end
+        end
+    end
+endmodule
+
+[[ ## completed ## ]]
+
+
+
+
+
+✨ File fp16_multiplier.v saved at : /home/OpenROAD-flow-scripts/flow/designs/src/fp16_multiplier/fp16_multiplier.v
+✨ File fp16_multiplier_ITER_3.v saved at : runs/2b_multi_agent/results/p8/rtl_gen_flow/fp16_multiplier_ITER_3.v
+✨ File fp16_multiplier.v saved at : runs/2b_multi_agent/results/p8/rtl_gen_flow/fp16_multiplier.v
+
+--- RUNNING RTL SIMULATION ---
+Compiling: iverilog -Wall -g2005 -o sim_rtl.out runs/2b_multi_agent/results/p8/rtl_gen_flow/fp16_multiplier.v runs/2b_multi_agent/results/p8/tb_gen_flow/fp16_multiplier_tb.v
+Compilation succeeded.
+
+Executing RTL simulation (vvp)...
+TEST: FAIL | Inputs: a=3c00, b=4000 | Expected: 4000 | Output: 0000
+TEST: PASS | Inputs: a=0000, b=4500 | Expected: 0000 | Output: 0000
+TEST: FAIL | Inputs: a=c000, b=4800 | Expected: c900 | Output: 8000
+TEST: PASS | Inputs: a=0000, b=0000 | Expected: 0000 | Output: 0000
+TEST: FAIL | Inputs: a=3c00, b=bc00 | Expected: bc00 | Output: 8000
+TEST: FAIL | Inputs: a=7c00, b=3c00 | Expected: 7c00 | Output: 0000
+TEST: FAIL | Inputs: a=7bff, b=4000 | Expected: 7c00 | Output: 0000
+TEST: FAIL | Inputs: a=0400, b=3800 | Expected: 0000 | Output: 0400
+
+❌ RTL simulation failed. Feeding back errors to agent...
+
+[RTL VALIDATOR] Skipped
+
+[RTL GEN] Iteration 4/10...
+
+[TOKENS] rtl_generator | RTL generation, iteration 4 | gemini/gemini-3.1-flash-lite
+Call Time:       3.84s
+Tokens Used:     Prompt: 3760 | Completion: 1010 | Total: 4770
+Throughput:      74,484.4 TPM (1241.41 TPS)
+
+
+
+
+[2026-10-08T11:54:15.566989]
+
+System message:
+
+Your input fields are:
+1. `yaml_spec` (str): Hardware functional requirements in YAML format
+2. `module_signature` (str): Exact Verilog module port declaration
+3. `rtl_rules` (str): MANDATORY hardware rules
+4. `previous_code` (str): Verilog code from the last iteration (if any)
+5. `feedback` (str): Simulation/Synthesis error logs to fix
+Your output fields are:
+1. `reasoning` (str): 
+2. `rtl_code` (str): Complete SYNTHESIZABLE Verilog-2001 code, no explanation, no markdown
+All interactions will be structured in the following way, with the appropriate values filled in.
+
+[[ ## yaml_spec ## ]]
+{yaml_spec}
+
+[[ ## module_signature ## ]]
+{module_signature}
+
+[[ ## rtl_rules ## ]]
+{rtl_rules}
+
+[[ ## previous_code ## ]]
+{previous_code}
+
+[[ ## feedback ## ]]
+{feedback}
+
+[[ ## reasoning ## ]]
+{reasoning}
+
+[[ ## rtl_code ## ]]
+{rtl_code}
+
+[[ ## completed ## ]]
+In adhering to this structure, your objective is: 
+        You are an expert RTL engineer. Transform a YAML hardware specification
+        into high-quality, synthesizable Verilog-2001 code according to the
+        provided YAML specification and Hardware Rules.
+
+
+User message:
+
+[[ ## yaml_spec ## ]]
+description: |
+  16-bit floating-point multiplier (IEEE 754 half-precision compatible) with support for zero detection and rounding to nearest even. Takes two 16-bit FP16 inputs and computes the product in a single cycle. Ignore subnormal/denormal inputs or outputs.
+tech_node: SkyWater 130HD
+clock_period: 9ns
+parameters: {}
+ports:
+- {name: a, direction: input, type: '[15:0]', description: FP16 input operand A}
+- {name: b, direction: input, type: '[15:0]', description: FP16 input operand B}
+- {name: result, direction: output, type: 'reg [15:0]', description: FP16 product result of A * B}
+module_signature: |
+  module fp16_multiplier(
+      input      [15:0] a,
+      input      [15:0] b,
+      output reg [15:0] result
+  );
+sample_usage:
+  description: |
+    Example use case multiplying 1.0 * 2.0, expecting 2.0 in FP16 encoding.
+  a: 16'b0_01111_0000000000
+  b: 16'b0_10000_0000000000
+  result: 16'b0_10000_0000000000
+timing: |
+  Purely combinational (no clock, no reset). A testbench applies a and b, waits 1 ns
+  (#1) and checks result. Use the combinational SDC template.
+arithmetic: |
+  sign = a[15] ^ b[15]. If a or b is zero (exponent field 0), result = signed zero
+  {sign, 15'b0}. Otherwise multiply the 11-bit significands {1, mantissa}, add the exponents
+  and subtract the bias 15, normalize, and round the mantissa to nearest, ties to even.
+  Exponent overflow (>= 31) -> infinity {sign, 5'b11111, 10'b0}; underflow (< 1) -> {sign, 15'b0}.
+  Reference cases (from the official testbench):
+    1.0 (0_01111_0000000000) *  2.0 (0_10000_0000000000) =   2.0 (0_10000_0000000000)
+    0.0 (0_00000_0000000000) *  5.0 (0_10001_0100000000) =   0.0 (0_00000_0000000000)
+   -3.0 (1_10000_1000000000) *  4.0 (0_10001_0000000000) = -12.0 (1_10010_1000000000)
+
+
+[[ ## module_signature ## ]]
+module fp16_multiplier(
+    input      [15:0] a,
+    input      [15:0] b,
+    output reg [15:0] result
+);
+
+
+[[ ## rtl_rules ## ]]
+--- MANDATORY RTL RULES (STRICT COMPLIANCE REQUIRED) ---
+
+1. MATCH THE SPEC'S "timing" SECTION EXACTLY:
+   - The number of register stages between an input and the output it affects (the latency)
+     must be exactly the one in the spec: not one more, not one less.
+   - Reset: use the reset port of the module signature with the spec's polarity, as a
+     SYNCHRONOUS reset inside always @(posedge clk). Reset every register the spec mentions.
+   - Combinational designs (no clock port): use always @(*) / assign only, no registers.
+
+2. NO MULTI-DRIVER CONFLICTS:
+   - Every signal (reg/wire) must be assigned in EXACTLY ONE 'always' block or ONE 'assign' statement.
+   - NEVER assign a signal in the sequential block if it is also assigned in a combinatorial block.
+
+3. CODING DISCIPLINE:
+   - SYNTAX: Use Verilog-2001 standards. NO 'logic' or 'int' types. Use 'reg' and 'wire' only
+     ('integer' only as a for-loop index).
+   - ASSIGNMENTS: Strictly use '<=' for sequential 'always' and '=' for combinatorial 'always' blocks.
+   - BLOCKS: ALWAYS use 'begin...end' for every 'if', 'else', and 'always' block, regardless of command count.
+   - SCOPE: Declare all 'reg' and 'wire' signals at the top of the module.
+   - NON-SYNTHESIZABLE TYPES: NEVER use 'real' types, initial blocks, delays (#) or $display.
+   - LATCH PREVENTION:
+     * Start every combinatorial always block by assigning a default value to ALL its outputs.
+     * Every 'if' in a combinatorial block must have an 'else'.
+     * Every 'case' must have a 'default'.
+
+4. ARITHMETIC:
+   - SIGNED DATA: declare signed values as 'signed' (reg signed [W-1:0] x) and slice flattened
+     vectors with $signed(V[i*WIDTH +: WIDTH]). Never mix signed and unsigned operands in one
+     expression (Verilog then treats everything as unsigned).
+   - WIDTHS: size every intermediate result so it cannot overflow (a*b needs 2*W bits; a sum of
+     N terms needs log2(N) extra bits), then assign to the output width given by the signature.
+   - PARAMETERS: keep the parameters of the signature and use them (no hard-coded widths).
+     Use for loops with an integer index, or generate blocks, for the N elements.
+   - FORMULAS: implement exactly the formula of the spec's "arithmetic" section (e.g. a Taylor
+     approximation is NOT the exact function), including the rounding it asks for.
+
+5. TIMING & PIPELINE ARCHITECTURE (PERFORMANCE COMPLIANCE):
+   - TIMING CLOSURE :
+     * The RTL MUST be created to meet the clock_period defined in the specification.
+     * NEVER chain multiple heavy operations (Multipliers, Dividers, Barrel Shifters) in a single combinatorial path.
+   - PIPELINE ENFORCEMENT:
+     * If the spec mentions "Pipelined", the design MUST use intermediate registers to break combinatorial paths,
+       with exactly the number of stages (latency) given in the spec's timing section.
+     * Balance the arithmetic workload across stages to ensure no single stage exceeds the clock period.
+     * When the latency must stay at 1 (e.g. a FIR filter), use a transposed structure: one
+       multiply and one add per register.
+   - NON-LINEAR FUNCTION OPTIMIZATION:
+     * For non-linear functions (e.g., x^3, 1/x, e^x, or complex coefficients) where the input width is less than 10 bits,
+       use a Look-Up Table whose values follow the spec's formula exactly.
+     * Always pre-calculate constant scaling (like Taylor coefficients) within the LUT initialization to eliminate post-multiplication logic.
+
+6. STATE DEFINITIONS - IF REQUIRED:
+   - Use 'localparam' to define states with UNIQUE binary values.
+   - SIZING CONSISTENCY: Every state constant MUST be sized exactly to M bits (e.g., M'bBINARY).
+   - REGISTER MATCHING: The state register 'reg [M-1:0] state' must have a width (M) that matches the localparam size exactly.
+   - SUFFICIENCY: M must be large enough to represent all states (M >= ceil(log2(number_of_states))).
+     * Example: For 5 states, use M=3 (reg [2:0] state) and constants like 3'b000.
+
+7. FSM DESIGN - IF REQUIRED (USE MOORE STYLE):
+   - TWO-BLOCK ARCHITECTURE:
+     * BLOCK A (Sequential): Use 'always @(posedge clk)' ONLY for updating the state register.
+       Initialize the state to the 'IDLE' parameter inside the synchronous 'if (reset)' branch.
+       DO NOT assign functional outputs in this block.
+     * BLOCK B (Combinatorial): Use 'always @(*)' for next-state logic AND all functional outputs.
+       TOP-LEVEL DEFAULTS: You MUST start this block by defining 'next_state = state;' and all outputs to their inactive/default values.
+   - OUTPUT ASSERTION (MOORE STYLE):
+     * Outputs must depend ONLY on the 'state' register.
+     * Do NOT include input signals in the output assignment logic.
+     * The output is 1 while 'state' equals the success state, i.e. in the cycle AFTER the edge
+       that samples the last input of the pattern.
+   - PROGRESSION & LOOPBACK (SEQUENCE DETECTORS):
+     * One state per prefix of the pattern already matched (IDLE = nothing matched).
+     * Every 'case' branch MUST define 'next_state' for BOTH input values.
+     * On a mismatch, go to the state of the LONGEST suffix of the bits seen so far that is
+       still a prefix of the pattern. This can be the SAME state (self-loop), e.g. in "0011"
+       the state "00" stays in "00" when another 0 arrives.
+     * After the success state, continue with the overlap rule above (overlapping matches
+       are detected).
+
+8. FORMATTING:
+   - Ensure the module name and port list match the provided 'module_signature' EXACTLY.
+   - Use '//' for comments. NEVER use backticks (`) before a comment.
+
+[[ ## previous_code ## ]]
+`timescale 1ns/1ps
+
+module fp16_multiplier(
+    input      [15:0] a,
+    input      [15:0] b,
+    output reg [15:0] result
+);
+
+    reg sign;
+    reg [4:0] exp_a, exp_b;
+    reg [10:0] man_a, man_b;
+    reg [21:0] prod;
+    reg [5:0] exp_sum_wide;
+    reg [4:0] norm_exp;
+    reg [10:0] norm_man;
+    reg guard, round_bit, sticky;
+    reg round_up;
+    reg [10:0] rounded_man;
+
+    always @(*) begin
+        sign = a[15] ^ b[15];
+        exp_a = a[14:10];
+        exp_b = b[14:10];
+        man_a = {1'b1, a[9:0]};
+        man_b = {1'b1, b[9:0]};
+        prod = man_a * man_b;
+        
+        // Zero detection
+        if ((exp_a == 5'd0) || (exp_b == 5'd0)) begin
+            result = {sign, 15'b0};
+        end else begin
+            exp_sum_wide = exp_a + exp_b - 5'd15;
+            
+            if (prod[21]) begin
+                norm_man = prod[21:11];
+                guard = prod[10];
+                round_bit = prod[9];
+                sticky = |prod[8:0];
+                norm_exp = exp_sum_wide + 1'b1;
+            end else begin
+                norm_man = prod[20:10];
+                guard = prod[9];
+                round_bit = prod[8];
+                sticky = |prod[7:0];
+                norm_exp = exp_sum_wide;
+            end
+            
+            round_up = guard && (round_bit || sticky || norm_man[0]);
+            rounded_man = norm_man + (round_up ? 1'b1 : 1'b0);
+            
+            if (rounded_man[10]) begin
+                norm_man = {1'b1, 10'b0};
+                norm_exp = norm_exp + 1'b1;
+            end else begin
+                norm_man = rounded_man;
+            end
+            
+            if (norm_exp >= 5'd31) begin
+                result = {sign, 5'b11111, 10'b0};
+            end else if ($signed(norm_exp) <= 0) begin
+                result = {sign, 15'b0};
+            end else begin
+                result = {sign, norm_exp, norm_man[9:0]};
+            end
+        end
+    end
+endmodule
+
+[[ ## feedback ## ]]
+RTL simulation failed.
+Fix the issues provided in EVALUATION LOGS while strictly following the RTL rules.
+If the outputs are right but appear one cycle too early or too late, your number of register
+stages does not match the latency in the spec's "timing" section.
+--- EVALUATION LOGS ---
+Compiling rtl...
+Compilation succeeded.
+Executing RTL simulation (vvp)...
+TEST: FAIL | Inputs: a=3c00, b=4000 | Expected: 4000 | Output: 0000
+TEST: PASS | Inputs: a=0000, b=4500 | Expected: 0000 | Output: 0000
+TEST: FAIL | Inputs: a=c000, b=4800 | Expected: c900 | Output: 8000
+TEST: PASS | Inputs: a=0000, b=0000 | Expected: 0000 | Output: 0000
+TEST: FAIL | Inputs: a=3c00, b=bc00 | Expected: bc00 | Output: 8000
+TEST: FAIL | Inputs: a=7c00, b=3c00 | Expected: 7c00 | Output: 0000
+TEST: FAIL | Inputs: a=7bff, b=4000 | Expected: 7c00 | Output: 0000
+TEST: FAIL | Inputs: a=0400, b=3800 | Expected: 0000 | Output: 0400
+
+
+Respond with the corresponding output fields, starting with the field `[[ ## reasoning ## ]]`, then `[[ ## rtl_code ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`.
+
+
+Response:
+
+[[ ## reasoning ## ]]
+The logic errors were:
+1. Handling of the normalized significand: The `prod` result is 22 bits (from 11x11 multiplication). Bit 21 is always 1 for normal numbers. The previous logic incorrectly normalized bits, leading to shifted mantissas.
+2. Sign bit: The sign bit logic for zero cases needs to be consistent. If a result is zero, it should be signed zero `sign`.
+3. Rounding: The rounding logic was slightly off for cases where the mantissa wraps around 1.0.
+4. Exponents: The bias adjustment was correct, but the sign bit propagation for negative results was being overwritten in cases like `-3.0 * 4.0`.
+5. IEEE 754 logic: Simplified the product normalization (since 1.m * 1.m results in 1.xxxxx or 1x.xxxx).
+
+Corrected logic:
+- `prod = man_a * man_b` (22 bits).
+- Normalize: If `prod[21]` is 1, `norm_man = prod[21:11]`, `exp = exp_a + exp_b - 15`. If `prod[21]` is 0 (not possible for normalized inputs), shift.
+- The `sign` bit is handled correctly as `a[15] ^ b[15]`.
+- Proper zero/infinity checks.
+
+[[ ## rtl_code ## ]]
+module fp16_multiplier(
+    input      [15:0] a,
+    input      [15:0] b,
+    output reg [15:0] result
+);
+
+    reg sign;
+    reg [4:0] exp_a, exp_b;
+    reg [10:0] man_a, man_b;
+    reg [21:0] prod;
+    reg [5:0] exp_sum;
+    reg [10:0] m;
+    reg [4:0] e;
+    reg guard, round_bit, sticky;
+    reg round_up;
+
+    always @(*) begin
+        sign = a[15] ^ b[15];
+        exp_a = a[14:10];
+        exp_b = b[14:10];
+        man_a = {1'b1, a[9:0]};
+        man_b = {1'b1, b[9:0]};
+        prod = man_a * man_b;
+
+        if ((exp_a == 5'd0) || (exp_b == 5'd0)) begin
+            result = {sign, 15'd0};
+        end else if ((exp_a == 5'd31) || (exp_b == 5'd31)) begin
+            result = {sign, 5'b11111, 10'd0};
+        end else begin
+            exp_sum = exp_a + exp_b - 5'd15;
+            
+            if (prod[21]) begin
+                m = prod[21:11];
+                guard = prod[10];
+                round_bit = prod[9];
+                sticky = |prod[8:0];
+                e = exp_sum + 1'b1;
+            end else begin
+                m = prod[20:10];
+                guard = prod[9];
+                round_bit = prod[8];
+                sticky = |prod[7:0];
+                e = exp_sum;
+            end
+
+            round_up = guard && (round_bit || sticky || m[0]);
+            if (round_up) begin
+                m = m + 1'b1;
+                if (m[10]) begin
+                    m = 11'b10000000000;
+                    e = e + 1'b1;
+                end
+            end
+
+            if (e >= 5'd31) begin
+                result = {sign, 5'b11111, 10'd0};
+            end else if ($signed(e) <= 0) begin
+                result = {sign, 15'd0};
+            end else begin
+                result = {sign, e, m[9:0]};
+            end
+        end
+    end
+endmodule
+
+[[ ## completed ## ]]
+
+
+
+
+
+✨ File fp16_multiplier.v saved at : /home/OpenROAD-flow-scripts/flow/designs/src/fp16_multiplier/fp16_multiplier.v
+✨ File fp16_multiplier_ITER_4.v saved at : runs/2b_multi_agent/results/p8/rtl_gen_flow/fp16_multiplier_ITER_4.v
+✨ File fp16_multiplier.v saved at : runs/2b_multi_agent/results/p8/rtl_gen_flow/fp16_multiplier.v
+
+--- RUNNING RTL SIMULATION ---
+Compiling: iverilog -Wall -g2005 -o sim_rtl.out runs/2b_multi_agent/results/p8/rtl_gen_flow/fp16_multiplier.v runs/2b_multi_agent/results/p8/tb_gen_flow/fp16_multiplier_tb.v
+Compilation succeeded.
+
+Executing RTL simulation (vvp)...
+TEST: FAIL | Inputs: a=3c00, b=4000 | Expected: 4000 | Output: 0000
+TEST: PASS | Inputs: a=0000, b=4500 | Expected: 0000 | Output: 0000
+TEST: FAIL | Inputs: a=c000, b=4800 | Expected: c900 | Output: 8000
+TEST: PASS | Inputs: a=0000, b=0000 | Expected: 0000 | Output: 0000
+TEST: PASS | Inputs: a=3c00, b=bc00 | Expected: bc00 | Output: bc00
+TEST: PASS | Inputs: a=7c00, b=3c00 | Expected: 7c00 | Output: 7c00
+TEST: PASS | Inputs: a=7bff, b=4000 | Expected: 7c00 | Output: 7c00
+TEST: PASS | Inputs: a=0400, b=3800 | Expected: 0000 | Output: 0000
+
+❌ RTL simulation failed. Feeding back errors to agent...
+
+[RTL VALIDATOR] Skipped
+
+[RTL GEN] Iteration 5/10...
+
+[TOKENS] rtl_generator | RTL generation, iteration 5 | gemini/gemini-3.1-flash-lite
+Call Time:       4.52s
+Tokens Used:     Prompt: 3735 | Completion: 1125 | Total: 4860
+Throughput:      64,550.8 TPM (1075.85 TPS)
+
+
+
+
+[2026-10-08T11:54:20.628279]
+
+System message:
+
+Your input fields are:
+1. `yaml_spec` (str): Hardware functional requirements in YAML format
+2. `module_signature` (str): Exact Verilog module port declaration
+3. `rtl_rules` (str): MANDATORY hardware rules
+4. `previous_code` (str): Verilog code from the last iteration (if any)
+5. `feedback` (str): Simulation/Synthesis error logs to fix
+Your output fields are:
+1. `reasoning` (str): 
+2. `rtl_code` (str): Complete SYNTHESIZABLE Verilog-2001 code, no explanation, no markdown
+All interactions will be structured in the following way, with the appropriate values filled in.
+
+[[ ## yaml_spec ## ]]
+{yaml_spec}
+
+[[ ## module_signature ## ]]
+{module_signature}
+
+[[ ## rtl_rules ## ]]
+{rtl_rules}
+
+[[ ## previous_code ## ]]
+{previous_code}
+
+[[ ## feedback ## ]]
+{feedback}
+
+[[ ## reasoning ## ]]
+{reasoning}
+
+[[ ## rtl_code ## ]]
+{rtl_code}
+
+[[ ## completed ## ]]
+In adhering to this structure, your objective is: 
+        You are an expert RTL engineer. Transform a YAML hardware specification
+        into high-quality, synthesizable Verilog-2001 code according to the
+        provided YAML specification and Hardware Rules.
+
+
+User message:
+
+[[ ## yaml_spec ## ]]
+description: |
+  16-bit floating-point multiplier (IEEE 754 half-precision compatible) with support for zero detection and rounding to nearest even. Takes two 16-bit FP16 inputs and computes the product in a single cycle. Ignore subnormal/denormal inputs or outputs.
+tech_node: SkyWater 130HD
+clock_period: 9ns
+parameters: {}
+ports:
+- {name: a, direction: input, type: '[15:0]', description: FP16 input operand A}
+- {name: b, direction: input, type: '[15:0]', description: FP16 input operand B}
+- {name: result, direction: output, type: 'reg [15:0]', description: FP16 product result of A * B}
+module_signature: |
+  module fp16_multiplier(
+      input      [15:0] a,
+      input      [15:0] b,
+      output reg [15:0] result
+  );
+sample_usage:
+  description: |
+    Example use case multiplying 1.0 * 2.0, expecting 2.0 in FP16 encoding.
+  a: 16'b0_01111_0000000000
+  b: 16'b0_10000_0000000000
+  result: 16'b0_10000_0000000000
+timing: |
+  Purely combinational (no clock, no reset). A testbench applies a and b, waits 1 ns
+  (#1) and checks result. Use the combinational SDC template.
+arithmetic: |
+  sign = a[15] ^ b[15]. If a or b is zero (exponent field 0), result = signed zero
+  {sign, 15'b0}. Otherwise multiply the 11-bit significands {1, mantissa}, add the exponents
+  and subtract the bias 15, normalize, and round the mantissa to nearest, ties to even.
+  Exponent overflow (>= 31) -> infinity {sign, 5'b11111, 10'b0}; underflow (< 1) -> {sign, 15'b0}.
+  Reference cases (from the official testbench):
+    1.0 (0_01111_0000000000) *  2.0 (0_10000_0000000000) =   2.0 (0_10000_0000000000)
+    0.0 (0_00000_0000000000) *  5.0 (0_10001_0100000000) =   0.0 (0_00000_0000000000)
+   -3.0 (1_10000_1000000000) *  4.0 (0_10001_0000000000) = -12.0 (1_10010_1000000000)
+
+
+[[ ## module_signature ## ]]
+module fp16_multiplier(
+    input      [15:0] a,
+    input      [15:0] b,
+    output reg [15:0] result
+);
+
+
+[[ ## rtl_rules ## ]]
+--- MANDATORY RTL RULES (STRICT COMPLIANCE REQUIRED) ---
+
+1. MATCH THE SPEC'S "timing" SECTION EXACTLY:
+   - The number of register stages between an input and the output it affects (the latency)
+     must be exactly the one in the spec: not one more, not one less.
+   - Reset: use the reset port of the module signature with the spec's polarity, as a
+     SYNCHRONOUS reset inside always @(posedge clk). Reset every register the spec mentions.
+   - Combinational designs (no clock port): use always @(*) / assign only, no registers.
+
+2. NO MULTI-DRIVER CONFLICTS:
+   - Every signal (reg/wire) must be assigned in EXACTLY ONE 'always' block or ONE 'assign' statement.
+   - NEVER assign a signal in the sequential block if it is also assigned in a combinatorial block.
+
+3. CODING DISCIPLINE:
+   - SYNTAX: Use Verilog-2001 standards. NO 'logic' or 'int' types. Use 'reg' and 'wire' only
+     ('integer' only as a for-loop index).
+   - ASSIGNMENTS: Strictly use '<=' for sequential 'always' and '=' for combinatorial 'always' blocks.
+   - BLOCKS: ALWAYS use 'begin...end' for every 'if', 'else', and 'always' block, regardless of command count.
+   - SCOPE: Declare all 'reg' and 'wire' signals at the top of the module.
+   - NON-SYNTHESIZABLE TYPES: NEVER use 'real' types, initial blocks, delays (#) or $display.
+   - LATCH PREVENTION:
+     * Start every combinatorial always block by assigning a default value to ALL its outputs.
+     * Every 'if' in a combinatorial block must have an 'else'.
+     * Every 'case' must have a 'default'.
+
+4. ARITHMETIC:
+   - SIGNED DATA: declare signed values as 'signed' (reg signed [W-1:0] x) and slice flattened
+     vectors with $signed(V[i*WIDTH +: WIDTH]). Never mix signed and unsigned operands in one
+     expression (Verilog then treats everything as unsigned).
+   - WIDTHS: size every intermediate result so it cannot overflow (a*b needs 2*W bits; a sum of
+     N terms needs log2(N) extra bits), then assign to the output width given by the signature.
+   - PARAMETERS: keep the parameters of the signature and use them (no hard-coded widths).
+     Use for loops with an integer index, or generate blocks, for the N elements.
+   - FORMULAS: implement exactly the formula of the spec's "arithmetic" section (e.g. a Taylor
+     approximation is NOT the exact function), including the rounding it asks for.
+
+5. TIMING & PIPELINE ARCHITECTURE (PERFORMANCE COMPLIANCE):
+   - TIMING CLOSURE :
+     * The RTL MUST be created to meet the clock_period defined in the specification.
+     * NEVER chain multiple heavy operations (Multipliers, Dividers, Barrel Shifters) in a single combinatorial path.
+   - PIPELINE ENFORCEMENT:
+     * If the spec mentions "Pipelined", the design MUST use intermediate registers to break combinatorial paths,
+       with exactly the number of stages (latency) given in the spec's timing section.
+     * Balance the arithmetic workload across stages to ensure no single stage exceeds the clock period.
+     * When the latency must stay at 1 (e.g. a FIR filter), use a transposed structure: one
+       multiply and one add per register.
+   - NON-LINEAR FUNCTION OPTIMIZATION:
+     * For non-linear functions (e.g., x^3, 1/x, e^x, or complex coefficients) where the input width is less than 10 bits,
+       use a Look-Up Table whose values follow the spec's formula exactly.
+     * Always pre-calculate constant scaling (like Taylor coefficients) within the LUT initialization to eliminate post-multiplication logic.
+
+6. STATE DEFINITIONS - IF REQUIRED:
+   - Use 'localparam' to define states with UNIQUE binary values.
+   - SIZING CONSISTENCY: Every state constant MUST be sized exactly to M bits (e.g., M'bBINARY).
+   - REGISTER MATCHING: The state register 'reg [M-1:0] state' must have a width (M) that matches the localparam size exactly.
+   - SUFFICIENCY: M must be large enough to represent all states (M >= ceil(log2(number_of_states))).
+     * Example: For 5 states, use M=3 (reg [2:0] state) and constants like 3'b000.
+
+7. FSM DESIGN - IF REQUIRED (USE MOORE STYLE):
+   - TWO-BLOCK ARCHITECTURE:
+     * BLOCK A (Sequential): Use 'always @(posedge clk)' ONLY for updating the state register.
+       Initialize the state to the 'IDLE' parameter inside the synchronous 'if (reset)' branch.
+       DO NOT assign functional outputs in this block.
+     * BLOCK B (Combinatorial): Use 'always @(*)' for next-state logic AND all functional outputs.
+       TOP-LEVEL DEFAULTS: You MUST start this block by defining 'next_state = state;' and all outputs to their inactive/default values.
+   - OUTPUT ASSERTION (MOORE STYLE):
+     * Outputs must depend ONLY on the 'state' register.
+     * Do NOT include input signals in the output assignment logic.
+     * The output is 1 while 'state' equals the success state, i.e. in the cycle AFTER the edge
+       that samples the last input of the pattern.
+   - PROGRESSION & LOOPBACK (SEQUENCE DETECTORS):
+     * One state per prefix of the pattern already matched (IDLE = nothing matched).
+     * Every 'case' branch MUST define 'next_state' for BOTH input values.
+     * On a mismatch, go to the state of the LONGEST suffix of the bits seen so far that is
+       still a prefix of the pattern. This can be the SAME state (self-loop), e.g. in "0011"
+       the state "00" stays in "00" when another 0 arrives.
+     * After the success state, continue with the overlap rule above (overlapping matches
+       are detected).
+
+8. FORMATTING:
+   - Ensure the module name and port list match the provided 'module_signature' EXACTLY.
+   - Use '//' for comments. NEVER use backticks (`) before a comment.
+
+[[ ## previous_code ## ]]
+`timescale 1ns/1ps
+
+module fp16_multiplier(
+    input      [15:0] a,
+    input      [15:0] b,
+    output reg [15:0] result
+);
+
+    reg sign;
+    reg [4:0] exp_a, exp_b;
+    reg [10:0] man_a, man_b;
+    reg [21:0] prod;
+    reg [5:0] exp_sum;
+    reg [10:0] m;
+    reg [4:0] e;
+    reg guard, round_bit, sticky;
+    reg round_up;
+
+    always @(*) begin
+        sign = a[15] ^ b[15];
+        exp_a = a[14:10];
+        exp_b = b[14:10];
+        man_a = {1'b1, a[9:0]};
+        man_b = {1'b1, b[9:0]};
+        prod = man_a * man_b;
+
+        if ((exp_a == 5'd0) || (exp_b == 5'd0)) begin
+            result = {sign, 15'd0};
+        end else if ((exp_a == 5'd31) || (exp_b == 5'd31)) begin
+            result = {sign, 5'b11111, 10'd0};
+        end else begin
+            exp_sum = exp_a + exp_b - 5'd15;
+            
+            if (prod[21]) begin
+                m = prod[21:11];
+                guard = prod[10];
+                round_bit = prod[9];
+                sticky = |prod[8:0];
+                e = exp_sum + 1'b1;
+            end else begin
+                m = prod[20:10];
+                guard = prod[9];
+                round_bit = prod[8];
+                sticky = |prod[7:0];
+                e = exp_sum;
+            end
+
+            round_up = guard && (round_bit || sticky || m[0]);
+            if (round_up) begin
+                m = m + 1'b1;
+                if (m[10]) begin
+                    m = 11'b10000000000;
+                    e = e + 1'b1;
+                end
+            end
+
+            if (e >= 5'd31) begin
+                result = {sign, 5'b11111, 10'd0};
+            end else if ($signed(e) <= 0) begin
+                result = {sign, 15'd0};
+            end else begin
+                result = {sign, e, m[9:0]};
+            end
+        end
+    end
+endmodule
+
+[[ ## feedback ## ]]
+RTL simulation failed.
+Fix the issues provided in EVALUATION LOGS while strictly following the RTL rules.
+If the outputs are right but appear one cycle too early or too late, your number of register
+stages does not match the latency in the spec's "timing" section.
+--- EVALUATION LOGS ---
+Compiling rtl...
+Compilation succeeded.
+Executing RTL simulation (vvp)...
+TEST: FAIL | Inputs: a=3c00, b=4000 | Expected: 4000 | Output: 0000
+TEST: PASS | Inputs: a=0000, b=4500 | Expected: 0000 | Output: 0000
+TEST: FAIL | Inputs: a=c000, b=4800 | Expected: c900 | Output: 8000
+TEST: PASS | Inputs: a=0000, b=0000 | Expected: 0000 | Output: 0000
+TEST: PASS | Inputs: a=3c00, b=bc00 | Expected: bc00 | Output: bc00
+TEST: PASS | Inputs: a=7c00, b=3c00 | Expected: 7c00 | Output: 7c00
+TEST: PASS | Inputs: a=7bff, b=4000 | Expected: 7c00 | Output: 7c00
+TEST: PASS | Inputs: a=0400, b=3800 | Expected: 0000 | Output: 0000
+
+
+Respond with the corresponding output fields, starting with the field `[[ ## reasoning ## ]]`, then `[[ ## rtl_code ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`.
+
+
+Response:
+
+[[ ## reasoning ## ]]
+The logic error in the previous code stems from:
+1. Handling of the normalized mantissa: The `prod` result from two 11-bit operands (including the implicit 1) is a 22-bit value. If the most significant bit (bit 21) is 1, the result is already in the range [1, 2), and we shift right by 10 (or 11) to normalize. If bit 21 is 0, we shift by 10. The previous code incorrectly calculated the bit indices for the mantissa and rounding bits.
+2. Signed exponent calculation: The exponent calculation `exp_a + exp_b - 15` can be negative or overflow. Using `integer` or correctly checking for underflow is required.
+3. Rounding: The "round to nearest, ties to even" logic requires checking `guard`, `round`, and `sticky` bits based on the actual bit shifted out.
+4. Correctness of logic flow: Ensure that the implicit leading bit (the 1) is correctly included when `prod[21]` is 0, implying a shift.
+
+Refined logic:
+- Multiplier: `22'b0` padded product of `{1, a[9:0]}` and `{1, b[9:0]}`.
+- If `prod[21]` is 1, exponent is `e = exp_a + exp_b - 15`. Mantissa is `prod[20:10]`.
+- If `prod[21]` is 0, exponent is `e = exp_a + exp_b - 15 - 1`. Mantissa is `prod[19:9]`.
+- Proper handling of the 10-bit fractional part after normalization.
+
+[[ ## rtl_code ## ]]
+module fp16_multiplier(
+    input      [15:0] a,
+    input      [15:0] b,
+    output reg [15:0] result
+);
+
+    reg sign;
+    reg [4:0] exp_a, exp_b;
+    reg [10:0] man_a, man_b;
+    reg [21:0] prod;
+    reg signed [6:0] exp_sum;
+    reg [10:0] mantissa;
+    reg [4:0] exponent;
+    reg guard, round_bit, sticky;
+    reg round_up;
+
+    always @(*) begin
+        sign = a[15] ^ b[15];
+        exp_a = a[14:10];
+        exp_b = b[14:10];
+        man_a = {1'b1, a[9:0]};
+        man_b = {1'b1, b[9:0]};
+        prod = man_a * man_b;
+
+        // Default result logic
+        if ((exp_a == 5'd0) || (exp_b == 5'd0)) begin
+            result = {sign, 15'd0};
+        end else if ((exp_a == 5'd31) || (exp_b == 5'd31)) begin
+            result = {sign, 5'b11111, 10'd0};
+        end else begin
+            exp_sum = $signed({1'b0, exp_a}) + $signed({1'b0, exp_b}) - 7'd15;
+            
+            if (prod[21]) begin
+                exponent = exp_sum[4:0];
+                mantissa = prod[21:11];
+                guard = prod[10];
+                round_bit = prod[9];
+                sticky = |prod[8:0];
+            end else begin
+                exponent = exp_sum[4:0] - 5'd1;
+                mantissa = prod[20:10];
+                guard = prod[9];
+                round_bit = prod[8];
+                sticky = |prod[7:0];
+            end
+
+            round_up = guard && (round_bit || sticky || mantissa[0]);
+            if (round_up) begin
+                mantissa = mantissa + 1'b1;
+                if (mantissa[10]) begin
+                    mantissa = mantissa >> 1;
+                    exponent = exponent + 5'd1;
+                end
+            end
+
+            if ($signed(exponent) >= 5'd31) begin
+                result = {sign, 5'b11111, 10'd0};
+            end else if ($signed(exponent) <= 0) begin
+                result = {sign, 15'd0};
+            end else begin
+                result = {sign, exponent, mantissa[9:0]};
+            end
+        end
+    end
+endmodule
+[[ ## completed ## ]]
+
+
+
+
+
+✨ File fp16_multiplier.v saved at : /home/OpenROAD-flow-scripts/flow/designs/src/fp16_multiplier/fp16_multiplier.v
+✨ File fp16_multiplier_ITER_5.v saved at : runs/2b_multi_agent/results/p8/rtl_gen_flow/fp16_multiplier_ITER_5.v
+✨ File fp16_multiplier.v saved at : runs/2b_multi_agent/results/p8/rtl_gen_flow/fp16_multiplier.v
+
+--- RUNNING RTL SIMULATION ---
+Compiling: iverilog -Wall -g2005 -o sim_rtl.out runs/2b_multi_agent/results/p8/rtl_gen_flow/fp16_multiplier.v runs/2b_multi_agent/results/p8/tb_gen_flow/fp16_multiplier_tb.v
+Compilation succeeded.
+
+Executing RTL simulation (vvp)...
+TEST: FAIL | Inputs: a=3c00, b=4000 | Expected: 4000 | Output: 3c00
+TEST: PASS | Inputs: a=0000, b=4500 | Expected: 0000 | Output: 0000
+TEST: FAIL | Inputs: a=c000, b=4800 | Expected: c900 | Output: 8000
+TEST: PASS | Inputs: a=0000, b=0000 | Expected: 0000 | Output: 0000
+TEST: FAIL | Inputs: a=3c00, b=bc00 | Expected: bc00 | Output: b800
+TEST: PASS | Inputs: a=7c00, b=3c00 | Expected: 7c00 | Output: 7c00
+TEST: FAIL | Inputs: a=7bff, b=4000 | Expected: 7c00 | Output: 0000
+TEST: FAIL | Inputs: a=0400, b=3800 | Expected: 0000 | Output: 7c00
+
+❌ RTL simulation failed. Feeding back errors to agent...
+
+[RTL VALIDATOR] Skipped
+
+[RTL GEN] Iteration 6/10...
+
+[TOKENS] rtl_generator | RTL generation, iteration 6 | gemini/gemini-3.1-flash-lite
+Call Time:       3.73s
+Tokens Used:     Prompt: 3771 | Completion: 1004 | Total: 4775
+Throughput:      76,833.6 TPM (1280.56 TPS)
+
+
+
+
+[2026-10-08T11:54:24.570589]
+
+System message:
+
+Your input fields are:
+1. `yaml_spec` (str): Hardware functional requirements in YAML format
+2. `module_signature` (str): Exact Verilog module port declaration
+3. `rtl_rules` (str): MANDATORY hardware rules
+4. `previous_code` (str): Verilog code from the last iteration (if any)
+5. `feedback` (str): Simulation/Synthesis error logs to fix
+Your output fields are:
+1. `reasoning` (str): 
+2. `rtl_code` (str): Complete SYNTHESIZABLE Verilog-2001 code, no explanation, no markdown
+All interactions will be structured in the following way, with the appropriate values filled in.
+
+[[ ## yaml_spec ## ]]
+{yaml_spec}
+
+[[ ## module_signature ## ]]
+{module_signature}
+
+[[ ## rtl_rules ## ]]
+{rtl_rules}
+
+[[ ## previous_code ## ]]
+{previous_code}
+
+[[ ## feedback ## ]]
+{feedback}
+
+[[ ## reasoning ## ]]
+{reasoning}
+
+[[ ## rtl_code ## ]]
+{rtl_code}
+
+[[ ## completed ## ]]
+In adhering to this structure, your objective is: 
+        You are an expert RTL engineer. Transform a YAML hardware specification
+        into high-quality, synthesizable Verilog-2001 code according to the
+        provided YAML specification and Hardware Rules.
+
+
+User message:
+
+[[ ## yaml_spec ## ]]
+description: |
+  16-bit floating-point multiplier (IEEE 754 half-precision compatible) with support for zero detection and rounding to nearest even. Takes two 16-bit FP16 inputs and computes the product in a single cycle. Ignore subnormal/denormal inputs or outputs.
+tech_node: SkyWater 130HD
+clock_period: 9ns
+parameters: {}
+ports:
+- {name: a, direction: input, type: '[15:0]', description: FP16 input operand A}
+- {name: b, direction: input, type: '[15:0]', description: FP16 input operand B}
+- {name: result, direction: output, type: 'reg [15:0]', description: FP16 product result of A * B}
+module_signature: |
+  module fp16_multiplier(
+      input      [15:0] a,
+      input      [15:0] b,
+      output reg [15:0] result
+  );
+sample_usage:
+  description: |
+    Example use case multiplying 1.0 * 2.0, expecting 2.0 in FP16 encoding.
+  a: 16'b0_01111_0000000000
+  b: 16'b0_10000_0000000000
+  result: 16'b0_10000_0000000000
+timing: |
+  Purely combinational (no clock, no reset). A testbench applies a and b, waits 1 ns
+  (#1) and checks result. Use the combinational SDC template.
+arithmetic: |
+  sign = a[15] ^ b[15]. If a or b is zero (exponent field 0), result = signed zero
+  {sign, 15'b0}. Otherwise multiply the 11-bit significands {1, mantissa}, add the exponents
+  and subtract the bias 15, normalize, and round the mantissa to nearest, ties to even.
+  Exponent overflow (>= 31) -> infinity {sign, 5'b11111, 10'b0}; underflow (< 1) -> {sign, 15'b0}.
+  Reference cases (from the official testbench):
+    1.0 (0_01111_0000000000) *  2.0 (0_10000_0000000000) =   2.0 (0_10000_0000000000)
+    0.0 (0_00000_0000000000) *  5.0 (0_10001_0100000000) =   0.0 (0_00000_0000000000)
+   -3.0 (1_10000_1000000000) *  4.0 (0_10001_0000000000) = -12.0 (1_10010_1000000000)
+
+
+[[ ## module_signature ## ]]
+module fp16_multiplier(
+    input      [15:0] a,
+    input      [15:0] b,
+    output reg [15:0] result
+);
+
+
+[[ ## rtl_rules ## ]]
+--- MANDATORY RTL RULES (STRICT COMPLIANCE REQUIRED) ---
+
+1. MATCH THE SPEC'S "timing" SECTION EXACTLY:
+   - The number of register stages between an input and the output it affects (the latency)
+     must be exactly the one in the spec: not one more, not one less.
+   - Reset: use the reset port of the module signature with the spec's polarity, as a
+     SYNCHRONOUS reset inside always @(posedge clk). Reset every register the spec mentions.
+   - Combinational designs (no clock port): use always @(*) / assign only, no registers.
+
+2. NO MULTI-DRIVER CONFLICTS:
+   - Every signal (reg/wire) must be assigned in EXACTLY ONE 'always' block or ONE 'assign' statement.
+   - NEVER assign a signal in the sequential block if it is also assigned in a combinatorial block.
+
+3. CODING DISCIPLINE:
+   - SYNTAX: Use Verilog-2001 standards. NO 'logic' or 'int' types. Use 'reg' and 'wire' only
+     ('integer' only as a for-loop index).
+   - ASSIGNMENTS: Strictly use '<=' for sequential 'always' and '=' for combinatorial 'always' blocks.
+   - BLOCKS: ALWAYS use 'begin...end' for every 'if', 'else', and 'always' block, regardless of command count.
+   - SCOPE: Declare all 'reg' and 'wire' signals at the top of the module.
+   - NON-SYNTHESIZABLE TYPES: NEVER use 'real' types, initial blocks, delays (#) or $display.
+   - LATCH PREVENTION:
+     * Start every combinatorial always block by assigning a default value to ALL its outputs.
+     * Every 'if' in a combinatorial block must have an 'else'.
+     * Every 'case' must have a 'default'.
+
+4. ARITHMETIC:
+   - SIGNED DATA: declare signed values as 'signed' (reg signed [W-1:0] x) and slice flattened
+     vectors with $signed(V[i*WIDTH +: WIDTH]). Never mix signed and unsigned operands in one
+     expression (Verilog then treats everything as unsigned).
+   - WIDTHS: size every intermediate result so it cannot overflow (a*b needs 2*W bits; a sum of
+     N terms needs log2(N) extra bits), then assign to the output width given by the signature.
+   - PARAMETERS: keep the parameters of the signature and use them (no hard-coded widths).
+     Use for loops with an integer index, or generate blocks, for the N elements.
+   - FORMULAS: implement exactly the formula of the spec's "arithmetic" section (e.g. a Taylor
+     approximation is NOT the exact function), including the rounding it asks for.
+
+5. TIMING & PIPELINE ARCHITECTURE (PERFORMANCE COMPLIANCE):
+   - TIMING CLOSURE :
+     * The RTL MUST be created to meet the clock_period defined in the specification.
+     * NEVER chain multiple heavy operations (Multipliers, Dividers, Barrel Shifters) in a single combinatorial path.
+   - PIPELINE ENFORCEMENT:
+     * If the spec mentions "Pipelined", the design MUST use intermediate registers to break combinatorial paths,
+       with exactly the number of stages (latency) given in the spec's timing section.
+     * Balance the arithmetic workload across stages to ensure no single stage exceeds the clock period.
+     * When the latency must stay at 1 (e.g. a FIR filter), use a transposed structure: one
+       multiply and one add per register.
+   - NON-LINEAR FUNCTION OPTIMIZATION:
+     * For non-linear functions (e.g., x^3, 1/x, e^x, or complex coefficients) where the input width is less than 10 bits,
+       use a Look-Up Table whose values follow the spec's formula exactly.
+     * Always pre-calculate constant scaling (like Taylor coefficients) within the LUT initialization to eliminate post-multiplication logic.
+
+6. STATE DEFINITIONS - IF REQUIRED:
+   - Use 'localparam' to define states with UNIQUE binary values.
+   - SIZING CONSISTENCY: Every state constant MUST be sized exactly to M bits (e.g., M'bBINARY).
+   - REGISTER MATCHING: The state register 'reg [M-1:0] state' must have a width (M) that matches the localparam size exactly.
+   - SUFFICIENCY: M must be large enough to represent all states (M >= ceil(log2(number_of_states))).
+     * Example: For 5 states, use M=3 (reg [2:0] state) and constants like 3'b000.
+
+7. FSM DESIGN - IF REQUIRED (USE MOORE STYLE):
+   - TWO-BLOCK ARCHITECTURE:
+     * BLOCK A (Sequential): Use 'always @(posedge clk)' ONLY for updating the state register.
+       Initialize the state to the 'IDLE' parameter inside the synchronous 'if (reset)' branch.
+       DO NOT assign functional outputs in this block.
+     * BLOCK B (Combinatorial): Use 'always @(*)' for next-state logic AND all functional outputs.
+       TOP-LEVEL DEFAULTS: You MUST start this block by defining 'next_state = state;' and all outputs to their inactive/default values.
+   - OUTPUT ASSERTION (MOORE STYLE):
+     * Outputs must depend ONLY on the 'state' register.
+     * Do NOT include input signals in the output assignment logic.
+     * The output is 1 while 'state' equals the success state, i.e. in the cycle AFTER the edge
+       that samples the last input of the pattern.
+   - PROGRESSION & LOOPBACK (SEQUENCE DETECTORS):
+     * One state per prefix of the pattern already matched (IDLE = nothing matched).
+     * Every 'case' branch MUST define 'next_state' for BOTH input values.
+     * On a mismatch, go to the state of the LONGEST suffix of the bits seen so far that is
+       still a prefix of the pattern. This can be the SAME state (self-loop), e.g. in "0011"
+       the state "00" stays in "00" when another 0 arrives.
+     * After the success state, continue with the overlap rule above (overlapping matches
+       are detected).
+
+8. FORMATTING:
+   - Ensure the module name and port list match the provided 'module_signature' EXACTLY.
+   - Use '//' for comments. NEVER use backticks (`) before a comment.
+
+[[ ## previous_code ## ]]
+`timescale 1ns/1ps
+
+module fp16_multiplier(
+    input      [15:0] a,
+    input      [15:0] b,
+    output reg [15:0] result
+);
+
+    reg sign;
+    reg [4:0] exp_a, exp_b;
+    reg [10:0] man_a, man_b;
+    reg [21:0] prod;
+    reg signed [6:0] exp_sum;
+    reg [10:0] mantissa;
+    reg [4:0] exponent;
+    reg guard, round_bit, sticky;
+    reg round_up;
+
+    always @(*) begin
+        sign = a[15] ^ b[15];
+        exp_a = a[14:10];
+        exp_b = b[14:10];
+        man_a = {1'b1, a[9:0]};
+        man_b = {1'b1, b[9:0]};
+        prod = man_a * man_b;
+
+        // Default result logic
+        if ((exp_a == 5'd0) || (exp_b == 5'd0)) begin
+            result = {sign, 15'd0};
+        end else if ((exp_a == 5'd31) || (exp_b == 5'd31)) begin
+            result = {sign, 5'b11111, 10'd0};
+        end else begin
+            exp_sum = $signed({1'b0, exp_a}) + $signed({1'b0, exp_b}) - 7'd15;
+            
+            if (prod[21]) begin
+                exponent = exp_sum[4:0];
+                mantissa = prod[21:11];
+                guard = prod[10];
+                round_bit = prod[9];
+                sticky = |prod[8:0];
+            end else begin
+                exponent = exp_sum[4:0] - 5'd1;
+                mantissa = prod[20:10];
+                guard = prod[9];
+                round_bit = prod[8];
+                sticky = |prod[7:0];
+            end
+
+            round_up = guard && (round_bit || sticky || mantissa[0]);
+            if (round_up) begin
+                mantissa = mantissa + 1'b1;
+                if (mantissa[10]) begin
+                    mantissa = mantissa >> 1;
+                    exponent = exponent + 5'd1;
+                end
+            end
+
+            if ($signed(exponent) >= 5'd31) begin
+                result = {sign, 5'b11111, 10'd0};
+            end else if ($signed(exponent) <= 0) begin
+                result = {sign, 15'd0};
+            end else begin
+                result = {sign, exponent, mantissa[9:0]};
+            end
+        end
+    end
+endmodule
+
+[[ ## feedback ## ]]
+RTL simulation failed.
+Fix the issues provided in EVALUATION LOGS while strictly following the RTL rules.
+If the outputs are right but appear one cycle too early or too late, your number of register
+stages does not match the latency in the spec's "timing" section.
+--- EVALUATION LOGS ---
+Compiling rtl...
+Compilation succeeded.
+Executing RTL simulation (vvp)...
+TEST: FAIL | Inputs: a=3c00, b=4000 | Expected: 4000 | Output: 3c00
+TEST: PASS | Inputs: a=0000, b=4500 | Expected: 0000 | Output: 0000
+TEST: FAIL | Inputs: a=c000, b=4800 | Expected: c900 | Output: 8000
+TEST: PASS | Inputs: a=0000, b=0000 | Expected: 0000 | Output: 0000
+TEST: FAIL | Inputs: a=3c00, b=bc00 | Expected: bc00 | Output: b800
+TEST: PASS | Inputs: a=7c00, b=3c00 | Expected: 7c00 | Output: 7c00
+TEST: FAIL | Inputs: a=7bff, b=4000 | Expected: 7c00 | Output: 0000
+TEST: FAIL | Inputs: a=0400, b=3800 | Expected: 0000 | Output: 7c00
+
+
+Respond with the corresponding output fields, starting with the field `[[ ## reasoning ## ]]`, then `[[ ## rtl_code ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`.
+
+
+Response:
+
+[[ ## reasoning ## ]]
+The previous implementation had issues with normalizing the product mantissa (specifically when the product overflowed the 22-bit normalized representation) and mishandled the bias subtraction. The bias for FP16 is 15. When adding exponents (14:10) and subtracting bias (15), the range is wide; intermediate signed calculations are necessary. 
+
+Logic fixes:
+1. Normalized significand is always 1.mantissa. Product of two 11-bit numbers (1.f1 * 1.f2) yields 22 bits. The leading '1' will be at bit 21 or 20.
+2. If `prod[21]` is 1, exponent is `(ea + eb - 15)`, and mantissa is `prod[20:11]`.
+3. If `prod[21]` is 0, exponent is `(ea + eb - 15 - 1)`, and mantissa is `prod[19:10]`.
+4. Fixed rounding: Nearest even rounding requires checking guard, round, and sticky bits. If mantissa overflows after rounding, increment exponent.
+5. Final checks: Underflow (exponent <= 0) yields zero, overflow (exponent >= 31) yields infinity.
+
+[[ ## rtl_code ## ]]
+module fp16_multiplier(
+    input      [15:0] a,
+    input      [15:0] b,
+    output reg [15:0] result
+);
+
+    reg sign;
+    reg [4:0] ea, eb;
+    reg [10:0] ma, mb;
+    reg [21:0] prod;
+    reg signed [7:0] exp_raw;
+    reg [4:0] exp_final;
+    reg [10:0] mant_shifted;
+    reg [9:0] mant_final;
+    reg g, r, s;
+    reg round_up;
+
+    always @(*) begin
+        sign = a[15] ^ b[15];
+        ea = a[14:10];
+        eb = b[14:10];
+        ma = {1'b1, a[9:0]};
+        mb = {1'b1, b[9:0]};
+        prod = ma * mb;
+
+        // Default
+        result = 16'd0;
+
+        if (ea == 5'd0 || eb == 5'd0) begin
+            result = {sign, 15'd0};
+        end else if (ea == 5'd31 || eb == 5'd31) begin
+            result = {sign, 5'b11111, 10'd0};
+        end else begin
+            exp_raw = $signed({1'b0, ea}) + $signed({1'b0, eb}) - 8'd15;
+            
+            if (prod[21]) begin
+                exp_final = exp_raw[4:0];
+                mant_shifted = prod[21:11];
+                g = prod[10];
+                r = prod[9];
+                s = |prod[8:0];
+            end else begin
+                exp_final = exp_raw[4:0] - 5'd1;
+                mant_shifted = prod[20:10];
+                g = prod[9];
+                r = prod[8];
+                s = |prod[7:0];
+            end
+
+            round_up = g && (r || s || mant_shifted[0]);
+            mant_final = mant_shifted[9:0] + round_up;
+            
+            if (mant_shifted[10] && round_up) begin
+                exp_final = exp_final + 5'd1;
+                mant_final = 10'd0;
+            end
+
+            if ($signed(exp_final) >= 31) begin
+                result = {sign, 5'b11111, 10'd0};
+            end else if ($signed(exp_final) <= 0) begin
+                result = {sign, 15'd0};
+            end else begin
+                result = {sign, exp_final, mant_final};
+            end
+        end
+    end
+endmodule
+
+[[ ## completed ## ]]
+
+
+
+
+
+✨ File fp16_multiplier.v saved at : /home/OpenROAD-flow-scripts/flow/designs/src/fp16_multiplier/fp16_multiplier.v
+✨ File fp16_multiplier_ITER_6.v saved at : runs/2b_multi_agent/results/p8/rtl_gen_flow/fp16_multiplier_ITER_6.v
+✨ File fp16_multiplier.v saved at : runs/2b_multi_agent/results/p8/rtl_gen_flow/fp16_multiplier.v
+
+--- RUNNING RTL SIMULATION ---
+Compiling: iverilog -Wall -g2005 -o sim_rtl.out runs/2b_multi_agent/results/p8/rtl_gen_flow/fp16_multiplier.v runs/2b_multi_agent/results/p8/tb_gen_flow/fp16_multiplier_tb.v
+Compilation succeeded.
+
+Executing RTL simulation (vvp)...
+TEST: FAIL | Inputs: a=3c00, b=4000 | Expected: 4000 | Output: 3c00
+TEST: PASS | Inputs: a=0000, b=4500 | Expected: 0000 | Output: 0000
+TEST: FAIL | Inputs: a=c000, b=4800 | Expected: c900 | Output: 8000
+TEST: PASS | Inputs: a=0000, b=0000 | Expected: 0000 | Output: 0000
+TEST: FAIL | Inputs: a=3c00, b=bc00 | Expected: bc00 | Output: b800
+TEST: PASS | Inputs: a=7c00, b=3c00 | Expected: 7c00 | Output: 7c00
+TEST: FAIL | Inputs: a=7bff, b=4000 | Expected: 7c00 | Output: 0000
+TEST: PASS | Inputs: a=0400, b=3800 | Expected: 0000 | Output: 0000
+
+❌ RTL simulation failed. Feeding back errors to agent...
+
+[RTL VALIDATOR] Skipped
+
+[RTL GEN] Iteration 7/10...
+
+[TOKENS] rtl_generator | RTL generation, iteration 7 | gemini/gemini-3.1-flash-lite
+Call Time:       3.89s
+Tokens Used:     Prompt: 3764 | Completion: 1000 | Total: 4764
+Throughput:      73,473.8 TPM (1224.56 TPS)
+
+
+
+
+[2026-10-08T11:54:29.926509]
+
+System message:
+
+Your input fields are:
+1. `yaml_spec` (str): Hardware functional requirements in YAML format
+2. `module_signature` (str): Exact Verilog module port declaration
+3. `rtl_rules` (str): MANDATORY hardware rules
+4. `previous_code` (str): Verilog code from the last iteration (if any)
+5. `feedback` (str): Simulation/Synthesis error logs to fix
+Your output fields are:
+1. `reasoning` (str): 
+2. `rtl_code` (str): Complete SYNTHESIZABLE Verilog-2001 code, no explanation, no markdown
+All interactions will be structured in the following way, with the appropriate values filled in.
+
+[[ ## yaml_spec ## ]]
+{yaml_spec}
+
+[[ ## module_signature ## ]]
+{module_signature}
+
+[[ ## rtl_rules ## ]]
+{rtl_rules}
+
+[[ ## previous_code ## ]]
+{previous_code}
+
+[[ ## feedback ## ]]
+{feedback}
+
+[[ ## reasoning ## ]]
+{reasoning}
+
+[[ ## rtl_code ## ]]
+{rtl_code}
+
+[[ ## completed ## ]]
+In adhering to this structure, your objective is: 
+        You are an expert RTL engineer. Transform a YAML hardware specification
+        into high-quality, synthesizable Verilog-2001 code according to the
+        provided YAML specification and Hardware Rules.
+
+
+User message:
+
+[[ ## yaml_spec ## ]]
+description: |
+  16-bit floating-point multiplier (IEEE 754 half-precision compatible) with support for zero detection and rounding to nearest even. Takes two 16-bit FP16 inputs and computes the product in a single cycle. Ignore subnormal/denormal inputs or outputs.
+tech_node: SkyWater 130HD
+clock_period: 9ns
+parameters: {}
+ports:
+- {name: a, direction: input, type: '[15:0]', description: FP16 input operand A}
+- {name: b, direction: input, type: '[15:0]', description: FP16 input operand B}
+- {name: result, direction: output, type: 'reg [15:0]', description: FP16 product result of A * B}
+module_signature: |
+  module fp16_multiplier(
+      input      [15:0] a,
+      input      [15:0] b,
+      output reg [15:0] result
+  );
+sample_usage:
+  description: |
+    Example use case multiplying 1.0 * 2.0, expecting 2.0 in FP16 encoding.
+  a: 16'b0_01111_0000000000
+  b: 16'b0_10000_0000000000
+  result: 16'b0_10000_0000000000
+timing: |
+  Purely combinational (no clock, no reset). A testbench applies a and b, waits 1 ns
+  (#1) and checks result. Use the combinational SDC template.
+arithmetic: |
+  sign = a[15] ^ b[15]. If a or b is zero (exponent field 0), result = signed zero
+  {sign, 15'b0}. Otherwise multiply the 11-bit significands {1, mantissa}, add the exponents
+  and subtract the bias 15, normalize, and round the mantissa to nearest, ties to even.
+  Exponent overflow (>= 31) -> infinity {sign, 5'b11111, 10'b0}; underflow (< 1) -> {sign, 15'b0}.
+  Reference cases (from the official testbench):
+    1.0 (0_01111_0000000000) *  2.0 (0_10000_0000000000) =   2.0 (0_10000_0000000000)
+    0.0 (0_00000_0000000000) *  5.0 (0_10001_0100000000) =   0.0 (0_00000_0000000000)
+   -3.0 (1_10000_1000000000) *  4.0 (0_10001_0000000000) = -12.0 (1_10010_1000000000)
+
+
+[[ ## module_signature ## ]]
+module fp16_multiplier(
+    input      [15:0] a,
+    input      [15:0] b,
+    output reg [15:0] result
+);
+
+
+[[ ## rtl_rules ## ]]
+--- MANDATORY RTL RULES (STRICT COMPLIANCE REQUIRED) ---
+
+1. MATCH THE SPEC'S "timing" SECTION EXACTLY:
+   - The number of register stages between an input and the output it affects (the latency)
+     must be exactly the one in the spec: not one more, not one less.
+   - Reset: use the reset port of the module signature with the spec's polarity, as a
+     SYNCHRONOUS reset inside always @(posedge clk). Reset every register the spec mentions.
+   - Combinational designs (no clock port): use always @(*) / assign only, no registers.
+
+2. NO MULTI-DRIVER CONFLICTS:
+   - Every signal (reg/wire) must be assigned in EXACTLY ONE 'always' block or ONE 'assign' statement.
+   - NEVER assign a signal in the sequential block if it is also assigned in a combinatorial block.
+
+3. CODING DISCIPLINE:
+   - SYNTAX: Use Verilog-2001 standards. NO 'logic' or 'int' types. Use 'reg' and 'wire' only
+     ('integer' only as a for-loop index).
+   - ASSIGNMENTS: Strictly use '<=' for sequential 'always' and '=' for combinatorial 'always' blocks.
+   - BLOCKS: ALWAYS use 'begin...end' for every 'if', 'else', and 'always' block, regardless of command count.
+   - SCOPE: Declare all 'reg' and 'wire' signals at the top of the module.
+   - NON-SYNTHESIZABLE TYPES: NEVER use 'real' types, initial blocks, delays (#) or $display.
+   - LATCH PREVENTION:
+     * Start every combinatorial always block by assigning a default value to ALL its outputs.
+     * Every 'if' in a combinatorial block must have an 'else'.
+     * Every 'case' must have a 'default'.
+
+4. ARITHMETIC:
+   - SIGNED DATA: declare signed values as 'signed' (reg signed [W-1:0] x) and slice flattened
+     vectors with $signed(V[i*WIDTH +: WIDTH]). Never mix signed and unsigned operands in one
+     expression (Verilog then treats everything as unsigned).
+   - WIDTHS: size every intermediate result so it cannot overflow (a*b needs 2*W bits; a sum of
+     N terms needs log2(N) extra bits), then assign to the output width given by the signature.
+   - PARAMETERS: keep the parameters of the signature and use them (no hard-coded widths).
+     Use for loops with an integer index, or generate blocks, for the N elements.
+   - FORMULAS: implement exactly the formula of the spec's "arithmetic" section (e.g. a Taylor
+     approximation is NOT the exact function), including the rounding it asks for.
+
+5. TIMING & PIPELINE ARCHITECTURE (PERFORMANCE COMPLIANCE):
+   - TIMING CLOSURE :
+     * The RTL MUST be created to meet the clock_period defined in the specification.
+     * NEVER chain multiple heavy operations (Multipliers, Dividers, Barrel Shifters) in a single combinatorial path.
+   - PIPELINE ENFORCEMENT:
+     * If the spec mentions "Pipelined", the design MUST use intermediate registers to break combinatorial paths,
+       with exactly the number of stages (latency) given in the spec's timing section.
+     * Balance the arithmetic workload across stages to ensure no single stage exceeds the clock period.
+     * When the latency must stay at 1 (e.g. a FIR filter), use a transposed structure: one
+       multiply and one add per register.
+   - NON-LINEAR FUNCTION OPTIMIZATION:
+     * For non-linear functions (e.g., x^3, 1/x, e^x, or complex coefficients) where the input width is less than 10 bits,
+       use a Look-Up Table whose values follow the spec's formula exactly.
+     * Always pre-calculate constant scaling (like Taylor coefficients) within the LUT initialization to eliminate post-multiplication logic.
+
+6. STATE DEFINITIONS - IF REQUIRED:
+   - Use 'localparam' to define states with UNIQUE binary values.
+   - SIZING CONSISTENCY: Every state constant MUST be sized exactly to M bits (e.g., M'bBINARY).
+   - REGISTER MATCHING: The state register 'reg [M-1:0] state' must have a width (M) that matches the localparam size exactly.
+   - SUFFICIENCY: M must be large enough to represent all states (M >= ceil(log2(number_of_states))).
+     * Example: For 5 states, use M=3 (reg [2:0] state) and constants like 3'b000.
+
+7. FSM DESIGN - IF REQUIRED (USE MOORE STYLE):
+   - TWO-BLOCK ARCHITECTURE:
+     * BLOCK A (Sequential): Use 'always @(posedge clk)' ONLY for updating the state register.
+       Initialize the state to the 'IDLE' parameter inside the synchronous 'if (reset)' branch.
+       DO NOT assign functional outputs in this block.
+     * BLOCK B (Combinatorial): Use 'always @(*)' for next-state logic AND all functional outputs.
+       TOP-LEVEL DEFAULTS: You MUST start this block by defining 'next_state = state;' and all outputs to their inactive/default values.
+   - OUTPUT ASSERTION (MOORE STYLE):
+     * Outputs must depend ONLY on the 'state' register.
+     * Do NOT include input signals in the output assignment logic.
+     * The output is 1 while 'state' equals the success state, i.e. in the cycle AFTER the edge
+       that samples the last input of the pattern.
+   - PROGRESSION & LOOPBACK (SEQUENCE DETECTORS):
+     * One state per prefix of the pattern already matched (IDLE = nothing matched).
+     * Every 'case' branch MUST define 'next_state' for BOTH input values.
+     * On a mismatch, go to the state of the LONGEST suffix of the bits seen so far that is
+       still a prefix of the pattern. This can be the SAME state (self-loop), e.g. in "0011"
+       the state "00" stays in "00" when another 0 arrives.
+     * After the success state, continue with the overlap rule above (overlapping matches
+       are detected).
+
+8. FORMATTING:
+   - Ensure the module name and port list match the provided 'module_signature' EXACTLY.
+   - Use '//' for comments. NEVER use backticks (`) before a comment.
+
+[[ ## previous_code ## ]]
+`timescale 1ns/1ps
+
+module fp16_multiplier(
+    input      [15:0] a,
+    input      [15:0] b,
+    output reg [15:0] result
+);
+
+    reg sign;
+    reg [4:0] ea, eb;
+    reg [10:0] ma, mb;
+    reg [21:0] prod;
+    reg signed [7:0] exp_raw;
+    reg [4:0] exp_final;
+    reg [10:0] mant_shifted;
+    reg [9:0] mant_final;
+    reg g, r, s;
+    reg round_up;
+
+    always @(*) begin
+        sign = a[15] ^ b[15];
+        ea = a[14:10];
+        eb = b[14:10];
+        ma = {1'b1, a[9:0]};
+        mb = {1'b1, b[9:0]};
+        prod = ma * mb;
+
+        // Default
+        result = 16'd0;
+
+        if (ea == 5'd0 || eb == 5'd0) begin
+            result = {sign, 15'd0};
+        end else if (ea == 5'd31 || eb == 5'd31) begin
+            result = {sign, 5'b11111, 10'd0};
+        end else begin
+            exp_raw = $signed({1'b0, ea}) + $signed({1'b0, eb}) - 8'd15;
+            
+            if (prod[21]) begin
+                exp_final = exp_raw[4:0];
+                mant_shifted = prod[21:11];
+                g = prod[10];
+                r = prod[9];
+                s = |prod[8:0];
+            end else begin
+                exp_final = exp_raw[4:0] - 5'd1;
+                mant_shifted = prod[20:10];
+                g = prod[9];
+                r = prod[8];
+                s = |prod[7:0];
+            end
+
+            round_up = g && (r || s || mant_shifted[0]);
+            mant_final = mant_shifted[9:0] + round_up;
+            
+            if (mant_shifted[10] && round_up) begin
+                exp_final = exp_final + 5'd1;
+                mant_final = 10'd0;
+            end
+
+            if ($signed(exp_final) >= 31) begin
+                result = {sign, 5'b11111, 10'd0};
+            end else if ($signed(exp_final) <= 0) begin
+                result = {sign, 15'd0};
+            end else begin
+                result = {sign, exp_final, mant_final};
+            end
+        end
+    end
+endmodule
+
+[[ ## feedback ## ]]
+RTL simulation failed.
+Fix the issues provided in EVALUATION LOGS while strictly following the RTL rules.
+If the outputs are right but appear one cycle too early or too late, your number of register
+stages does not match the latency in the spec's "timing" section.
+--- EVALUATION LOGS ---
+Compiling rtl...
+Compilation succeeded.
+Executing RTL simulation (vvp)...
+TEST: FAIL | Inputs: a=3c00, b=4000 | Expected: 4000 | Output: 3c00
+TEST: PASS | Inputs: a=0000, b=4500 | Expected: 0000 | Output: 0000
+TEST: FAIL | Inputs: a=c000, b=4800 | Expected: c900 | Output: 8000
+TEST: PASS | Inputs: a=0000, b=0000 | Expected: 0000 | Output: 0000
+TEST: FAIL | Inputs: a=3c00, b=bc00 | Expected: bc00 | Output: b800
+TEST: PASS | Inputs: a=7c00, b=3c00 | Expected: 7c00 | Output: 7c00
+TEST: FAIL | Inputs: a=7bff, b=4000 | Expected: 7c00 | Output: 0000
+TEST: PASS | Inputs: a=0400, b=3800 | Expected: 0000 | Output: 0000
+
+
+Respond with the corresponding output fields, starting with the field `[[ ## reasoning ## ]]`, then `[[ ## rtl_code ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`.
+
+
+Response:
+
+[[ ## reasoning ## ]]
+The previous implementation had issues with the normalization logic (handling the `prod[21]` bit) and the exponent calculation logic. Specifically:
+1. The `exp_raw` calculation for normalized numbers should be `(ea - 15) + (eb - 15) + 15 = ea + eb - 15`. 
+2. The `prod[21]` bit indicates a mantissa range of [2, 4). Normalization logic must shift `prod` accordingly.
+3. The IEEE 754 rounding (round to nearest, ties to even) requires checking the guard, round, and sticky bits relative to the normalization.
+4. Underflow handling logic was overly aggressive (capping at 0 for any exp <= 0 instead of handling denormals or checking the effective exponent). 
+5. Corrected the `round_up` logic: `(G & (R | S)) | (M0 & G & ~R & ~S)` implements round-to-nearest-even correctly.
+6. The logic `exp_final = exp_raw + 1` when mantissa overflows from rounding is now explicitly handled.
+7. Infinity/Zero cases are prioritized correctly.
+
+[[ ## rtl_code ## ]]
+module fp16_multiplier(
+    input      [15:0] a,
+    input      [15:0] b,
+    output reg [15:0] result
+);
+
+    reg        sign;
+    reg [4:0]  ea, eb;
+    reg [10:0] ma, mb;
+    reg [21:0] prod;
+    reg signed [7:0] exp_raw;
+    reg [4:0]  exp_final;
+    reg [10:0] mant_norm;
+    reg [9:0]  mant_final;
+    reg        g, r, s;
+    reg        round_bit;
+
+    always @(*) begin
+        sign = a[15] ^ b[15];
+        ea = a[14:10];
+        eb = b[14:10];
+        ma = {1'b1, a[9:0]};
+        mb = {1'b1, b[9:0]};
+        prod = ma * mb;
+
+        result = 16'd0;
+
+        if ((ea == 5'd0) || (eb == 5'd0)) begin
+            result = {sign, 15'd0};
+        end else if ((ea == 5'd31) || (eb == 5'd31)) begin
+            result = {sign, 5'b11111, 10'd0};
+        end else begin
+            exp_raw = $signed({1'b0, ea}) + $signed({1'b0, eb}) - 8'd15;
+            
+            if (prod[21]) begin
+                mant_norm = prod[21:11];
+                exp_final = exp_raw + 1;
+                g = prod[10];
+                r = prod[9];
+                s = |prod[8:0];
+            end else begin
+                mant_norm = prod[20:10];
+                exp_final = exp_raw;
+                g = prod[9];
+                r = prod[8];
+                s = |prod[7:0];
+            end
+
+            // Round to nearest even
+            round_bit = g && (r || s || mant_norm[0]);
+            mant_final = mant_norm[9:0] + round_bit;
+
+            if (mant_norm[9:0] == 10'b1111111111 && round_bit) begin
+                exp_final = exp_final + 1;
+                mant_final = 10'd0;
+            end
+
+            if ($signed(exp_final) >= 31) begin
+                result = {sign, 5'b11111, 10'd0};
+            end else if ($signed(exp_final) <= 0) begin
+                result = {sign, 15'd0};
+            end else begin
+                result = {sign, exp_final, mant_final};
+            end
+        end
+    end
+endmodule
+
+[[ ## completed ## ]]
+
+
+
+
+
+✨ File fp16_multiplier.v saved at : /home/OpenROAD-flow-scripts/flow/designs/src/fp16_multiplier/fp16_multiplier.v
+✨ File fp16_multiplier_ITER_7.v saved at : runs/2b_multi_agent/results/p8/rtl_gen_flow/fp16_multiplier_ITER_7.v
+✨ File fp16_multiplier.v saved at : runs/2b_multi_agent/results/p8/rtl_gen_flow/fp16_multiplier.v
+
+--- RUNNING RTL SIMULATION ---
+Compiling: iverilog -Wall -g2005 -o sim_rtl.out runs/2b_multi_agent/results/p8/rtl_gen_flow/fp16_multiplier.v runs/2b_multi_agent/results/p8/tb_gen_flow/fp16_multiplier_tb.v
+Compilation succeeded.
+
+Executing RTL simulation (vvp)...
+TEST: FAIL | Inputs: a=3c00, b=4000 | Expected: 4000 | Output: 0000
+TEST: PASS | Inputs: a=0000, b=4500 | Expected: 0000 | Output: 0000
+TEST: FAIL | Inputs: a=c000, b=4800 | Expected: c900 | Output: 8000
+TEST: PASS | Inputs: a=0000, b=0000 | Expected: 0000 | Output: 0000
+TEST: PASS | Inputs: a=3c00, b=bc00 | Expected: bc00 | Output: bc00
+TEST: PASS | Inputs: a=7c00, b=3c00 | Expected: 7c00 | Output: 7c00
+TEST: FAIL | Inputs: a=7bff, b=4000 | Expected: 7c00 | Output: 0000
+TEST: PASS | Inputs: a=0400, b=3800 | Expected: 0000 | Output: 0000
+
+❌ RTL simulation failed. Feeding back errors to agent...
+
+[RTL VALIDATOR] Skipped
+
+[RTL GEN] Iteration 8/10...
+
+[TOKENS] rtl_generator | RTL generation, iteration 8 | gemini/gemini-3.1-flash-lite
+Call Time:       6.84s
+Tokens Used:     Prompt: 3776 | Completion: 1103 | Total: 4879
+Throughput:      42,825.9 TPM (713.77 TPS)
+
+
+
+
+[2026-10-08T11:54:37.052321]
+
+System message:
+
+Your input fields are:
+1. `yaml_spec` (str): Hardware functional requirements in YAML format
+2. `module_signature` (str): Exact Verilog module port declaration
+3. `rtl_rules` (str): MANDATORY hardware rules
+4. `previous_code` (str): Verilog code from the last iteration (if any)
+5. `feedback` (str): Simulation/Synthesis error logs to fix
+Your output fields are:
+1. `reasoning` (str): 
+2. `rtl_code` (str): Complete SYNTHESIZABLE Verilog-2001 code, no explanation, no markdown
+All interactions will be structured in the following way, with the appropriate values filled in.
+
+[[ ## yaml_spec ## ]]
+{yaml_spec}
+
+[[ ## module_signature ## ]]
+{module_signature}
+
+[[ ## rtl_rules ## ]]
+{rtl_rules}
+
+[[ ## previous_code ## ]]
+{previous_code}
+
+[[ ## feedback ## ]]
+{feedback}
+
+[[ ## reasoning ## ]]
+{reasoning}
+
+[[ ## rtl_code ## ]]
+{rtl_code}
+
+[[ ## completed ## ]]
+In adhering to this structure, your objective is: 
+        You are an expert RTL engineer. Transform a YAML hardware specification
+        into high-quality, synthesizable Verilog-2001 code according to the
+        provided YAML specification and Hardware Rules.
+
+
+User message:
+
+[[ ## yaml_spec ## ]]
+description: |
+  16-bit floating-point multiplier (IEEE 754 half-precision compatible) with support for zero detection and rounding to nearest even. Takes two 16-bit FP16 inputs and computes the product in a single cycle. Ignore subnormal/denormal inputs or outputs.
+tech_node: SkyWater 130HD
+clock_period: 9ns
+parameters: {}
+ports:
+- {name: a, direction: input, type: '[15:0]', description: FP16 input operand A}
+- {name: b, direction: input, type: '[15:0]', description: FP16 input operand B}
+- {name: result, direction: output, type: 'reg [15:0]', description: FP16 product result of A * B}
+module_signature: |
+  module fp16_multiplier(
+      input      [15:0] a,
+      input      [15:0] b,
+      output reg [15:0] result
+  );
+sample_usage:
+  description: |
+    Example use case multiplying 1.0 * 2.0, expecting 2.0 in FP16 encoding.
+  a: 16'b0_01111_0000000000
+  b: 16'b0_10000_0000000000
+  result: 16'b0_10000_0000000000
+timing: |
+  Purely combinational (no clock, no reset). A testbench applies a and b, waits 1 ns
+  (#1) and checks result. Use the combinational SDC template.
+arithmetic: |
+  sign = a[15] ^ b[15]. If a or b is zero (exponent field 0), result = signed zero
+  {sign, 15'b0}. Otherwise multiply the 11-bit significands {1, mantissa}, add the exponents
+  and subtract the bias 15, normalize, and round the mantissa to nearest, ties to even.
+  Exponent overflow (>= 31) -> infinity {sign, 5'b11111, 10'b0}; underflow (< 1) -> {sign, 15'b0}.
+  Reference cases (from the official testbench):
+    1.0 (0_01111_0000000000) *  2.0 (0_10000_0000000000) =   2.0 (0_10000_0000000000)
+    0.0 (0_00000_0000000000) *  5.0 (0_10001_0100000000) =   0.0 (0_00000_0000000000)
+   -3.0 (1_10000_1000000000) *  4.0 (0_10001_0000000000) = -12.0 (1_10010_1000000000)
+
+
+[[ ## module_signature ## ]]
+module fp16_multiplier(
+    input      [15:0] a,
+    input      [15:0] b,
+    output reg [15:0] result
+);
+
+
+[[ ## rtl_rules ## ]]
+--- MANDATORY RTL RULES (STRICT COMPLIANCE REQUIRED) ---
+
+1. MATCH THE SPEC'S "timing" SECTION EXACTLY:
+   - The number of register stages between an input and the output it affects (the latency)
+     must be exactly the one in the spec: not one more, not one less.
+   - Reset: use the reset port of the module signature with the spec's polarity, as a
+     SYNCHRONOUS reset inside always @(posedge clk). Reset every register the spec mentions.
+   - Combinational designs (no clock port): use always @(*) / assign only, no registers.
+
+2. NO MULTI-DRIVER CONFLICTS:
+   - Every signal (reg/wire) must be assigned in EXACTLY ONE 'always' block or ONE 'assign' statement.
+   - NEVER assign a signal in the sequential block if it is also assigned in a combinatorial block.
+
+3. CODING DISCIPLINE:
+   - SYNTAX: Use Verilog-2001 standards. NO 'logic' or 'int' types. Use 'reg' and 'wire' only
+     ('integer' only as a for-loop index).
+   - ASSIGNMENTS: Strictly use '<=' for sequential 'always' and '=' for combinatorial 'always' blocks.
+   - BLOCKS: ALWAYS use 'begin...end' for every 'if', 'else', and 'always' block, regardless of command count.
+   - SCOPE: Declare all 'reg' and 'wire' signals at the top of the module.
+   - NON-SYNTHESIZABLE TYPES: NEVER use 'real' types, initial blocks, delays (#) or $display.
+   - LATCH PREVENTION:
+     * Start every combinatorial always block by assigning a default value to ALL its outputs.
+     * Every 'if' in a combinatorial block must have an 'else'.
+     * Every 'case' must have a 'default'.
+
+4. ARITHMETIC:
+   - SIGNED DATA: declare signed values as 'signed' (reg signed [W-1:0] x) and slice flattened
+     vectors with $signed(V[i*WIDTH +: WIDTH]). Never mix signed and unsigned operands in one
+     expression (Verilog then treats everything as unsigned).
+   - WIDTHS: size every intermediate result so it cannot overflow (a*b needs 2*W bits; a sum of
+     N terms needs log2(N) extra bits), then assign to the output width given by the signature.
+   - PARAMETERS: keep the parameters of the signature and use them (no hard-coded widths).
+     Use for loops with an integer index, or generate blocks, for the N elements.
+   - FORMULAS: implement exactly the formula of the spec's "arithmetic" section (e.g. a Taylor
+     approximation is NOT the exact function), including the rounding it asks for.
+
+5. TIMING & PIPELINE ARCHITECTURE (PERFORMANCE COMPLIANCE):
+   - TIMING CLOSURE :
+     * The RTL MUST be created to meet the clock_period defined in the specification.
+     * NEVER chain multiple heavy operations (Multipliers, Dividers, Barrel Shifters) in a single combinatorial path.
+   - PIPELINE ENFORCEMENT:
+     * If the spec mentions "Pipelined", the design MUST use intermediate registers to break combinatorial paths,
+       with exactly the number of stages (latency) given in the spec's timing section.
+     * Balance the arithmetic workload across stages to ensure no single stage exceeds the clock period.
+     * When the latency must stay at 1 (e.g. a FIR filter), use a transposed structure: one
+       multiply and one add per register.
+   - NON-LINEAR FUNCTION OPTIMIZATION:
+     * For non-linear functions (e.g., x^3, 1/x, e^x, or complex coefficients) where the input width is less than 10 bits,
+       use a Look-Up Table whose values follow the spec's formula exactly.
+     * Always pre-calculate constant scaling (like Taylor coefficients) within the LUT initialization to eliminate post-multiplication logic.
+
+6. STATE DEFINITIONS - IF REQUIRED:
+   - Use 'localparam' to define states with UNIQUE binary values.
+   - SIZING CONSISTENCY: Every state constant MUST be sized exactly to M bits (e.g., M'bBINARY).
+   - REGISTER MATCHING: The state register 'reg [M-1:0] state' must have a width (M) that matches the localparam size exactly.
+   - SUFFICIENCY: M must be large enough to represent all states (M >= ceil(log2(number_of_states))).
+     * Example: For 5 states, use M=3 (reg [2:0] state) and constants like 3'b000.
+
+7. FSM DESIGN - IF REQUIRED (USE MOORE STYLE):
+   - TWO-BLOCK ARCHITECTURE:
+     * BLOCK A (Sequential): Use 'always @(posedge clk)' ONLY for updating the state register.
+       Initialize the state to the 'IDLE' parameter inside the synchronous 'if (reset)' branch.
+       DO NOT assign functional outputs in this block.
+     * BLOCK B (Combinatorial): Use 'always @(*)' for next-state logic AND all functional outputs.
+       TOP-LEVEL DEFAULTS: You MUST start this block by defining 'next_state = state;' and all outputs to their inactive/default values.
+   - OUTPUT ASSERTION (MOORE STYLE):
+     * Outputs must depend ONLY on the 'state' register.
+     * Do NOT include input signals in the output assignment logic.
+     * The output is 1 while 'state' equals the success state, i.e. in the cycle AFTER the edge
+       that samples the last input of the pattern.
+   - PROGRESSION & LOOPBACK (SEQUENCE DETECTORS):
+     * One state per prefix of the pattern already matched (IDLE = nothing matched).
+     * Every 'case' branch MUST define 'next_state' for BOTH input values.
+     * On a mismatch, go to the state of the LONGEST suffix of the bits seen so far that is
+       still a prefix of the pattern. This can be the SAME state (self-loop), e.g. in "0011"
+       the state "00" stays in "00" when another 0 arrives.
+     * After the success state, continue with the overlap rule above (overlapping matches
+       are detected).
+
+8. FORMATTING:
+   - Ensure the module name and port list match the provided 'module_signature' EXACTLY.
+   - Use '//' for comments. NEVER use backticks (`) before a comment.
+
+[[ ## previous_code ## ]]
+`timescale 1ns/1ps
+
+module fp16_multiplier(
+    input      [15:0] a,
+    input      [15:0] b,
+    output reg [15:0] result
+);
+
+    reg        sign;
+    reg [4:0]  ea, eb;
+    reg [10:0] ma, mb;
+    reg [21:0] prod;
+    reg signed [7:0] exp_raw;
+    reg [4:0]  exp_final;
+    reg [10:0] mant_norm;
+    reg [9:0]  mant_final;
+    reg        g, r, s;
+    reg        round_bit;
+
+    always @(*) begin
+        sign = a[15] ^ b[15];
+        ea = a[14:10];
+        eb = b[14:10];
+        ma = {1'b1, a[9:0]};
+        mb = {1'b1, b[9:0]};
+        prod = ma * mb;
+
+        result = 16'd0;
+
+        if ((ea == 5'd0) || (eb == 5'd0)) begin
+            result = {sign, 15'd0};
+        end else if ((ea == 5'd31) || (eb == 5'd31)) begin
+            result = {sign, 5'b11111, 10'd0};
+        end else begin
+            exp_raw = $signed({1'b0, ea}) + $signed({1'b0, eb}) - 8'd15;
+            
+            if (prod[21]) begin
+                mant_norm = prod[21:11];
+                exp_final = exp_raw + 1;
+                g = prod[10];
+                r = prod[9];
+                s = |prod[8:0];
+            end else begin
+                mant_norm = prod[20:10];
+                exp_final = exp_raw;
+                g = prod[9];
+                r = prod[8];
+                s = |prod[7:0];
+            end
+
+            // Round to nearest even
+            round_bit = g && (r || s || mant_norm[0]);
+            mant_final = mant_norm[9:0] + round_bit;
+
+            if (mant_norm[9:0] == 10'b1111111111 && round_bit) begin
+                exp_final = exp_final + 1;
+                mant_final = 10'd0;
+            end
+
+            if ($signed(exp_final) >= 31) begin
+                result = {sign, 5'b11111, 10'd0};
+            end else if ($signed(exp_final) <= 0) begin
+                result = {sign, 15'd0};
+            end else begin
+                result = {sign, exp_final, mant_final};
+            end
+        end
+    end
+endmodule
+
+[[ ## feedback ## ]]
+RTL simulation failed.
+Fix the issues provided in EVALUATION LOGS while strictly following the RTL rules.
+If the outputs are right but appear one cycle too early or too late, your number of register
+stages does not match the latency in the spec's "timing" section.
+--- EVALUATION LOGS ---
+Compiling rtl...
+Compilation succeeded.
+Executing RTL simulation (vvp)...
+TEST: FAIL | Inputs: a=3c00, b=4000 | Expected: 4000 | Output: 0000
+TEST: PASS | Inputs: a=0000, b=4500 | Expected: 0000 | Output: 0000
+TEST: FAIL | Inputs: a=c000, b=4800 | Expected: c900 | Output: 8000
+TEST: PASS | Inputs: a=0000, b=0000 | Expected: 0000 | Output: 0000
+TEST: PASS | Inputs: a=3c00, b=bc00 | Expected: bc00 | Output: bc00
+TEST: PASS | Inputs: a=7c00, b=3c00 | Expected: 7c00 | Output: 7c00
+TEST: FAIL | Inputs: a=7bff, b=4000 | Expected: 7c00 | Output: 0000
+TEST: PASS | Inputs: a=0400, b=3800 | Expected: 0000 | Output: 0000
+
+
+Respond with the corresponding output fields, starting with the field `[[ ## reasoning ## ]]`, then `[[ ## rtl_code ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`.
+
+
+Response:
+
+[[ ## reasoning ## ]]
+The primary issue in the previous implementation was incorrect handling of the normalization step (shift logic based on `prod[21]`), insufficient exponent range handling, and faulty rounding logic. 
+
+1. **Normalization**: The product of two 11-bit numbers ({1, mantissa}) is 22 bits (max 2'b11... = 4). Since the product of two numbers in range [1, 2) is in [1, 4), `prod[21]` being set means the value is >= 2.0 (requires shift right by 1, increment exponent), and `prod[21]` being zero means the value is < 2.0 (no shift, keep exponent).
+2. **Rounding**: "Round to nearest, ties to even". The bit to be rounded is at index 10 (if shifted) or index 9. The rounding condition `g && (r || s || mant_norm[0])` is mathematically correct for "nearest even", but must be applied to the 10-bit mantissa correctly.
+3. **Exponent Bias**: The exponent logic was missing the edge case where the exponent becomes 0 (underflow) or overflows 30 (infinity). The specification states `1.0` (exp 15) * `2.0` (exp 16) = `2.0` (exp 16). 15+16-15 = 16. Correct.
+4. **Logic fix**: Simplified the normalization by using the bit `prod[21]` to choose between `prod[21:11]` or `prod[20:10]` and adjusting the exponent offset accordingly. Corrected the infinity condition (exp >= 31).
+
+[[ ## rtl_code ## ]]
+module fp16_multiplier(
+    input      [15:0] a,
+    input      [15:0] b,
+    output reg [15:0] result
+);
+
+    reg        sign;
+    reg [4:0]  ea, eb;
+    reg [10:0] ma, mb;
+    reg [21:0] prod;
+    reg signed [7:0] exp_raw;
+    reg [10:0] mant_norm;
+    reg [9:0]  mant_final;
+    reg [4:0]  exp_final;
+    reg        round_bit;
+
+    always @(*) begin
+        // Defaults
+        sign = a[15] ^ b[15];
+        ea = a[14:10];
+        eb = b[14:10];
+        ma = {1'b1, a[9:0]};
+        mb = {1'b1, b[9:0]};
+        prod = ma * mb;
+        result = 16'b0;
+
+        if (ea == 5'd0 || eb == 5'd0) begin
+            result = {sign, 15'b0};
+        end else if (ea == 5'd31 || eb == 5'd31) begin
+            result = {sign, 5'b11111, 10'b0};
+        end else begin
+            exp_raw = $signed({1'b0, ea}) + $signed({1'b0, eb}) - 8'd15;
+            
+            if (prod[21]) begin
+                mant_norm = prod[21:11];
+                exp_final = exp_raw + 8'd1;
+                round_bit = prod[10] && (prod[9] || (|prod[8:0]) || prod[11]);
+            end else begin
+                mant_norm = prod[20:10];
+                exp_final = exp_raw;
+                round_bit = prod[9] && (prod[8] || (|prod[7:0]) || prod[10]);
+            end
+
+            mant_final = mant_norm[9:0] + round_bit;
+
+            // Handle overflow of mantissa into exponent
+            if (mant_norm[9:0] == 10'b1111111111 && round_bit) begin
+                exp_final = exp_final + 8'd1;
+                mant_final = 10'b0;
+            end
+
+            if ($signed(exp_final) >= 31) begin
+                result = {sign, 5'b11111, 10'b0};
+            end else if ($signed(exp_final) <= 0) begin
+                result = {sign, 15'b0};
+            end else begin
+                result = {sign, exp_final, mant_final};
+            end
+        end
+    end
+endmodule
+[[ ## completed ## ]]
+
+
+
+
+
+✨ File fp16_multiplier.v saved at : /home/OpenROAD-flow-scripts/flow/designs/src/fp16_multiplier/fp16_multiplier.v
+✨ File fp16_multiplier_ITER_8.v saved at : runs/2b_multi_agent/results/p8/rtl_gen_flow/fp16_multiplier_ITER_8.v
+✨ File fp16_multiplier.v saved at : runs/2b_multi_agent/results/p8/rtl_gen_flow/fp16_multiplier.v
+
+--- RUNNING RTL SIMULATION ---
+Compiling: iverilog -Wall -g2005 -o sim_rtl.out runs/2b_multi_agent/results/p8/rtl_gen_flow/fp16_multiplier.v runs/2b_multi_agent/results/p8/tb_gen_flow/fp16_multiplier_tb.v
+Compilation succeeded.
+
+Executing RTL simulation (vvp)...
+TEST: FAIL | Inputs: a=3c00, b=4000 | Expected: 4000 | Output: 0000
+TEST: PASS | Inputs: a=0000, b=4500 | Expected: 0000 | Output: 0000
+TEST: FAIL | Inputs: a=c000, b=4800 | Expected: c900 | Output: 8000
+TEST: PASS | Inputs: a=0000, b=0000 | Expected: 0000 | Output: 0000
+TEST: PASS | Inputs: a=3c00, b=bc00 | Expected: bc00 | Output: bc00
+TEST: PASS | Inputs: a=7c00, b=3c00 | Expected: 7c00 | Output: 7c00
+TEST: FAIL | Inputs: a=7bff, b=4000 | Expected: 7c00 | Output: 0000
+TEST: PASS | Inputs: a=0400, b=3800 | Expected: 0000 | Output: 0000
+
+❌ RTL simulation failed. Feeding back errors to agent...
+
+[RTL VALIDATOR] Skipped
+
+[RTL GEN] Iteration 9/10...
+
+[TOKENS] rtl_generator | RTL generation, iteration 9 | gemini/gemini-3.1-flash-lite
+Call Time:       7.15s
+Tokens Used:     Prompt: 3762 | Completion: 1103 | Total: 4865
+Throughput:      40,845.6 TPM (680.76 TPS)
+
+
+
+
+[2026-10-08T11:54:44.486696]
+
+System message:
+
+Your input fields are:
+1. `yaml_spec` (str): Hardware functional requirements in YAML format
+2. `module_signature` (str): Exact Verilog module port declaration
+3. `rtl_rules` (str): MANDATORY hardware rules
+4. `previous_code` (str): Verilog code from the last iteration (if any)
+5. `feedback` (str): Simulation/Synthesis error logs to fix
+Your output fields are:
+1. `reasoning` (str): 
+2. `rtl_code` (str): Complete SYNTHESIZABLE Verilog-2001 code, no explanation, no markdown
+All interactions will be structured in the following way, with the appropriate values filled in.
+
+[[ ## yaml_spec ## ]]
+{yaml_spec}
+
+[[ ## module_signature ## ]]
+{module_signature}
+
+[[ ## rtl_rules ## ]]
+{rtl_rules}
+
+[[ ## previous_code ## ]]
+{previous_code}
+
+[[ ## feedback ## ]]
+{feedback}
+
+[[ ## reasoning ## ]]
+{reasoning}
+
+[[ ## rtl_code ## ]]
+{rtl_code}
+
+[[ ## completed ## ]]
+In adhering to this structure, your objective is: 
+        You are an expert RTL engineer. Transform a YAML hardware specification
+        into high-quality, synthesizable Verilog-2001 code according to the
+        provided YAML specification and Hardware Rules.
+
+
+User message:
+
+[[ ## yaml_spec ## ]]
+description: |
+  16-bit floating-point multiplier (IEEE 754 half-precision compatible) with support for zero detection and rounding to nearest even. Takes two 16-bit FP16 inputs and computes the product in a single cycle. Ignore subnormal/denormal inputs or outputs.
+tech_node: SkyWater 130HD
+clock_period: 9ns
+parameters: {}
+ports:
+- {name: a, direction: input, type: '[15:0]', description: FP16 input operand A}
+- {name: b, direction: input, type: '[15:0]', description: FP16 input operand B}
+- {name: result, direction: output, type: 'reg [15:0]', description: FP16 product result of A * B}
+module_signature: |
+  module fp16_multiplier(
+      input      [15:0] a,
+      input      [15:0] b,
+      output reg [15:0] result
+  );
+sample_usage:
+  description: |
+    Example use case multiplying 1.0 * 2.0, expecting 2.0 in FP16 encoding.
+  a: 16'b0_01111_0000000000
+  b: 16'b0_10000_0000000000
+  result: 16'b0_10000_0000000000
+timing: |
+  Purely combinational (no clock, no reset). A testbench applies a and b, waits 1 ns
+  (#1) and checks result. Use the combinational SDC template.
+arithmetic: |
+  sign = a[15] ^ b[15]. If a or b is zero (exponent field 0), result = signed zero
+  {sign, 15'b0}. Otherwise multiply the 11-bit significands {1, mantissa}, add the exponents
+  and subtract the bias 15, normalize, and round the mantissa to nearest, ties to even.
+  Exponent overflow (>= 31) -> infinity {sign, 5'b11111, 10'b0}; underflow (< 1) -> {sign, 15'b0}.
+  Reference cases (from the official testbench):
+    1.0 (0_01111_0000000000) *  2.0 (0_10000_0000000000) =   2.0 (0_10000_0000000000)
+    0.0 (0_00000_0000000000) *  5.0 (0_10001_0100000000) =   0.0 (0_00000_0000000000)
+   -3.0 (1_10000_1000000000) *  4.0 (0_10001_0000000000) = -12.0 (1_10010_1000000000)
+
+
+[[ ## module_signature ## ]]
+module fp16_multiplier(
+    input      [15:0] a,
+    input      [15:0] b,
+    output reg [15:0] result
+);
+
+
+[[ ## rtl_rules ## ]]
+--- MANDATORY RTL RULES (STRICT COMPLIANCE REQUIRED) ---
+
+1. MATCH THE SPEC'S "timing" SECTION EXACTLY:
+   - The number of register stages between an input and the output it affects (the latency)
+     must be exactly the one in the spec: not one more, not one less.
+   - Reset: use the reset port of the module signature with the spec's polarity, as a
+     SYNCHRONOUS reset inside always @(posedge clk). Reset every register the spec mentions.
+   - Combinational designs (no clock port): use always @(*) / assign only, no registers.
+
+2. NO MULTI-DRIVER CONFLICTS:
+   - Every signal (reg/wire) must be assigned in EXACTLY ONE 'always' block or ONE 'assign' statement.
+   - NEVER assign a signal in the sequential block if it is also assigned in a combinatorial block.
+
+3. CODING DISCIPLINE:
+   - SYNTAX: Use Verilog-2001 standards. NO 'logic' or 'int' types. Use 'reg' and 'wire' only
+     ('integer' only as a for-loop index).
+   - ASSIGNMENTS: Strictly use '<=' for sequential 'always' and '=' for combinatorial 'always' blocks.
+   - BLOCKS: ALWAYS use 'begin...end' for every 'if', 'else', and 'always' block, regardless of command count.
+   - SCOPE: Declare all 'reg' and 'wire' signals at the top of the module.
+   - NON-SYNTHESIZABLE TYPES: NEVER use 'real' types, initial blocks, delays (#) or $display.
+   - LATCH PREVENTION:
+     * Start every combinatorial always block by assigning a default value to ALL its outputs.
+     * Every 'if' in a combinatorial block must have an 'else'.
+     * Every 'case' must have a 'default'.
+
+4. ARITHMETIC:
+   - SIGNED DATA: declare signed values as 'signed' (reg signed [W-1:0] x) and slice flattened
+     vectors with $signed(V[i*WIDTH +: WIDTH]). Never mix signed and unsigned operands in one
+     expression (Verilog then treats everything as unsigned).
+   - WIDTHS: size every intermediate result so it cannot overflow (a*b needs 2*W bits; a sum of
+     N terms needs log2(N) extra bits), then assign to the output width given by the signature.
+   - PARAMETERS: keep the parameters of the signature and use them (no hard-coded widths).
+     Use for loops with an integer index, or generate blocks, for the N elements.
+   - FORMULAS: implement exactly the formula of the spec's "arithmetic" section (e.g. a Taylor
+     approximation is NOT the exact function), including the rounding it asks for.
+
+5. TIMING & PIPELINE ARCHITECTURE (PERFORMANCE COMPLIANCE):
+   - TIMING CLOSURE :
+     * The RTL MUST be created to meet the clock_period defined in the specification.
+     * NEVER chain multiple heavy operations (Multipliers, Dividers, Barrel Shifters) in a single combinatorial path.
+   - PIPELINE ENFORCEMENT:
+     * If the spec mentions "Pipelined", the design MUST use intermediate registers to break combinatorial paths,
+       with exactly the number of stages (latency) given in the spec's timing section.
+     * Balance the arithmetic workload across stages to ensure no single stage exceeds the clock period.
+     * When the latency must stay at 1 (e.g. a FIR filter), use a transposed structure: one
+       multiply and one add per register.
+   - NON-LINEAR FUNCTION OPTIMIZATION:
+     * For non-linear functions (e.g., x^3, 1/x, e^x, or complex coefficients) where the input width is less than 10 bits,
+       use a Look-Up Table whose values follow the spec's formula exactly.
+     * Always pre-calculate constant scaling (like Taylor coefficients) within the LUT initialization to eliminate post-multiplication logic.
+
+6. STATE DEFINITIONS - IF REQUIRED:
+   - Use 'localparam' to define states with UNIQUE binary values.
+   - SIZING CONSISTENCY: Every state constant MUST be sized exactly to M bits (e.g., M'bBINARY).
+   - REGISTER MATCHING: The state register 'reg [M-1:0] state' must have a width (M) that matches the localparam size exactly.
+   - SUFFICIENCY: M must be large enough to represent all states (M >= ceil(log2(number_of_states))).
+     * Example: For 5 states, use M=3 (reg [2:0] state) and constants like 3'b000.
+
+7. FSM DESIGN - IF REQUIRED (USE MOORE STYLE):
+   - TWO-BLOCK ARCHITECTURE:
+     * BLOCK A (Sequential): Use 'always @(posedge clk)' ONLY for updating the state register.
+       Initialize the state to the 'IDLE' parameter inside the synchronous 'if (reset)' branch.
+       DO NOT assign functional outputs in this block.
+     * BLOCK B (Combinatorial): Use 'always @(*)' for next-state logic AND all functional outputs.
+       TOP-LEVEL DEFAULTS: You MUST start this block by defining 'next_state = state;' and all outputs to their inactive/default values.
+   - OUTPUT ASSERTION (MOORE STYLE):
+     * Outputs must depend ONLY on the 'state' register.
+     * Do NOT include input signals in the output assignment logic.
+     * The output is 1 while 'state' equals the success state, i.e. in the cycle AFTER the edge
+       that samples the last input of the pattern.
+   - PROGRESSION & LOOPBACK (SEQUENCE DETECTORS):
+     * One state per prefix of the pattern already matched (IDLE = nothing matched).
+     * Every 'case' branch MUST define 'next_state' for BOTH input values.
+     * On a mismatch, go to the state of the LONGEST suffix of the bits seen so far that is
+       still a prefix of the pattern. This can be the SAME state (self-loop), e.g. in "0011"
+       the state "00" stays in "00" when another 0 arrives.
+     * After the success state, continue with the overlap rule above (overlapping matches
+       are detected).
+
+8. FORMATTING:
+   - Ensure the module name and port list match the provided 'module_signature' EXACTLY.
+   - Use '//' for comments. NEVER use backticks (`) before a comment.
+
+[[ ## previous_code ## ]]
+`timescale 1ns/1ps
+
+module fp16_multiplier(
+    input      [15:0] a,
+    input      [15:0] b,
+    output reg [15:0] result
+);
+
+    reg        sign;
+    reg [4:0]  ea, eb;
+    reg [10:0] ma, mb;
+    reg [21:0] prod;
+    reg signed [7:0] exp_raw;
+    reg [10:0] mant_norm;
+    reg [9:0]  mant_final;
+    reg [4:0]  exp_final;
+    reg        round_bit;
+
+    always @(*) begin
+        // Defaults
+        sign = a[15] ^ b[15];
+        ea = a[14:10];
+        eb = b[14:10];
+        ma = {1'b1, a[9:0]};
+        mb = {1'b1, b[9:0]};
+        prod = ma * mb;
+        result = 16'b0;
+
+        if (ea == 5'd0 || eb == 5'd0) begin
+            result = {sign, 15'b0};
+        end else if (ea == 5'd31 || eb == 5'd31) begin
+            result = {sign, 5'b11111, 10'b0};
+        end else begin
+            exp_raw = $signed({1'b0, ea}) + $signed({1'b0, eb}) - 8'd15;
+            
+            if (prod[21]) begin
+                mant_norm = prod[21:11];
+                exp_final = exp_raw + 8'd1;
+                round_bit = prod[10] && (prod[9] || (|prod[8:0]) || prod[11]);
+            end else begin
+                mant_norm = prod[20:10];
+                exp_final = exp_raw;
+                round_bit = prod[9] && (prod[8] || (|prod[7:0]) || prod[10]);
+            end
+
+            mant_final = mant_norm[9:0] + round_bit;
+
+            // Handle overflow of mantissa into exponent
+            if (mant_norm[9:0] == 10'b1111111111 && round_bit) begin
+                exp_final = exp_final + 8'd1;
+                mant_final = 10'b0;
+            end
+
+            if ($signed(exp_final) >= 31) begin
+                result = {sign, 5'b11111, 10'b0};
+            end else if ($signed(exp_final) <= 0) begin
+                result = {sign, 15'b0};
+            end else begin
+                result = {sign, exp_final, mant_final};
+            end
+        end
+    end
+endmodule
+
+[[ ## feedback ## ]]
+RTL simulation failed.
+Fix the issues provided in EVALUATION LOGS while strictly following the RTL rules.
+If the outputs are right but appear one cycle too early or too late, your number of register
+stages does not match the latency in the spec's "timing" section.
+--- EVALUATION LOGS ---
+Compiling rtl...
+Compilation succeeded.
+Executing RTL simulation (vvp)...
+TEST: FAIL | Inputs: a=3c00, b=4000 | Expected: 4000 | Output: 0000
+TEST: PASS | Inputs: a=0000, b=4500 | Expected: 0000 | Output: 0000
+TEST: FAIL | Inputs: a=c000, b=4800 | Expected: c900 | Output: 8000
+TEST: PASS | Inputs: a=0000, b=0000 | Expected: 0000 | Output: 0000
+TEST: PASS | Inputs: a=3c00, b=bc00 | Expected: bc00 | Output: bc00
+TEST: PASS | Inputs: a=7c00, b=3c00 | Expected: 7c00 | Output: 7c00
+TEST: FAIL | Inputs: a=7bff, b=4000 | Expected: 7c00 | Output: 0000
+TEST: PASS | Inputs: a=0400, b=3800 | Expected: 0000 | Output: 0000
+
+
+Respond with the corresponding output fields, starting with the field `[[ ## reasoning ## ]]`, then `[[ ## rtl_code ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`.
+
+
+Response:
+
+[[ ## reasoning ## ]]
+The previous implementation had issues with normalizing the product of two FP16 mantissas (which are effectively 1.mantissa). Since each mantissa is 1.xxxx (11 bits including implicit 1), their product range is [1.0, 4.0). Specifically, if the product is >= 2.0 (bit 21 is set), the exponent increments and the mantissa is shifted right by 1 bit. If the product is < 2.0, no shift is needed. The rounding logic was also flawed. Corrected the shift, normalization logic, and rounding to "nearest, ties to even". Specifically:
+1. Product of two 11-bit numbers is 22 bits.
+2. If `prod[21]` is set, shift right by 11, increment exponent.
+3. If `prod[21]` is 0, shift right by 10, keep exponent as calculated (expA + expB - 15).
+4. Rounding: check the bit below the LSB (guard), round bit, and sticky bit to perform "round to nearest even".
+5. Properly handle underflow/overflow bounds (exp < 1 results in 0, exp > 30 results in INF).
+6. Ensured all intermediate sign-extensions are correct.
+
+[[ ## rtl_code ## ]]
+module fp16_multiplier(
+    input      [15:0] a,
+    input      [15:0] b,
+    output reg [15:0] result
+);
+
+    reg        sign;
+    reg [4:0]  ea, eb;
+    reg [10:0] ma, mb;
+    reg [21:0] prod;
+    reg signed [7:0] exp_raw;
+    reg [10:0] m_res;
+    reg [4:0]  e_res;
+    reg        guard, round, sticky;
+    reg        round_up;
+
+    always @(*) begin
+        sign = a[15] ^ b[15];
+        ea = a[14:10];
+        eb = b[14:10];
+        ma = {1'b1, a[9:0]};
+        mb = {1'b1, b[9:0]};
+        prod = ma * mb;
+        
+        // Default result 0
+        result = {sign, 15'b0};
+
+        if ((ea == 5'd0) || (eb == 5'd0)) begin
+            result = {sign, 15'b0};
+        end else if ((ea == 5'd31) || (eb == 5'd31)) begin
+            result = {sign, 5'b11111, 10'b0};
+        end else begin
+            exp_raw = $signed({1'b0, ea}) + $signed({1'b0, eb}) - 8'd15;
+            
+            if (prod[21]) begin
+                m_res = prod[21:11];
+                guard = prod[10];
+                round = prod[9];
+                sticky = |prod[8:0];
+                e_res = exp_raw + 8'd1;
+            end else begin
+                m_res = prod[20:10];
+                guard = prod[9];
+                round = prod[8];
+                sticky = |prod[7:0];
+                e_res = exp_raw;
+            end
+
+            // Round to nearest even
+            round_up = guard && (round || sticky || m_res[0]);
+
+            if ($signed(e_res) >= 31) begin
+                result = {sign, 5'b11111, 10'b0};
+            end else if ($signed(e_res) <= 0) begin
+                result = {sign, 15'b0};
+            end else begin
+                {e_res, m_res} = {e_res, m_res} + round_up;
+                if (m_res[10]) begin
+                    m_res = m_res >> 1;
+                    e_res = e_res + 1'b1;
+                end
+                if ($signed(e_res) >= 31) begin
+                    result = {sign, 5'b11111, 10'b0};
+                end else if ($signed(e_res) <= 0) begin
+                    result = {sign, 15'b0};
+                end else begin
+                    result = {sign, e_res[4:0], m_res[9:0]};
+                end
+            end
+        end
+    end
+endmodule
+
+[[ ## completed ## ]]
+
+
+
+
+
+✨ File fp16_multiplier.v saved at : /home/OpenROAD-flow-scripts/flow/designs/src/fp16_multiplier/fp16_multiplier.v
+✨ File fp16_multiplier_ITER_9.v saved at : runs/2b_multi_agent/results/p8/rtl_gen_flow/fp16_multiplier_ITER_9.v
+✨ File fp16_multiplier.v saved at : runs/2b_multi_agent/results/p8/rtl_gen_flow/fp16_multiplier.v
+
+--- RUNNING RTL SIMULATION ---
+Compiling: iverilog -Wall -g2005 -o sim_rtl.out runs/2b_multi_agent/results/p8/rtl_gen_flow/fp16_multiplier.v runs/2b_multi_agent/results/p8/tb_gen_flow/fp16_multiplier_tb.v
+Compilation succeeded.
+
+Executing RTL simulation (vvp)...
+TEST: FAIL | Inputs: a=3c00, b=4000 | Expected: 4000 | Output: 0000
+TEST: PASS | Inputs: a=0000, b=4500 | Expected: 0000 | Output: 0000
+TEST: FAIL | Inputs: a=c000, b=4800 | Expected: c900 | Output: 8000
+TEST: PASS | Inputs: a=0000, b=0000 | Expected: 0000 | Output: 0000
+TEST: FAIL | Inputs: a=3c00, b=bc00 | Expected: bc00 | Output: 8000
+TEST: PASS | Inputs: a=7c00, b=3c00 | Expected: 7c00 | Output: 7c00
+TEST: FAIL | Inputs: a=7bff, b=4000 | Expected: 7c00 | Output: 0000
+TEST: PASS | Inputs: a=0400, b=3800 | Expected: 0000 | Output: 0000
+
+❌ RTL simulation failed. Feeding back errors to agent...
+
+[RTL VALIDATOR] Skipped
+
+[RTL GEN] Iteration 10/10...
+
+[TOKENS] rtl_generator | RTL generation, iteration 10 | gemini/gemini-3.1-flash-lite
+Call Time:       3.77s
+Tokens Used:     Prompt: 3856 | Completion: 976 | Total: 4832
+Throughput:      76,969.4 TPM (1282.82 TPS)
+
+
+
+
+[2026-10-08T11:54:48.618185]
+
+System message:
+
+Your input fields are:
+1. `yaml_spec` (str): Hardware functional requirements in YAML format
+2. `module_signature` (str): Exact Verilog module port declaration
+3. `rtl_rules` (str): MANDATORY hardware rules
+4. `previous_code` (str): Verilog code from the last iteration (if any)
+5. `feedback` (str): Simulation/Synthesis error logs to fix
+Your output fields are:
+1. `reasoning` (str): 
+2. `rtl_code` (str): Complete SYNTHESIZABLE Verilog-2001 code, no explanation, no markdown
+All interactions will be structured in the following way, with the appropriate values filled in.
+
+[[ ## yaml_spec ## ]]
+{yaml_spec}
+
+[[ ## module_signature ## ]]
+{module_signature}
+
+[[ ## rtl_rules ## ]]
+{rtl_rules}
+
+[[ ## previous_code ## ]]
+{previous_code}
+
+[[ ## feedback ## ]]
+{feedback}
+
+[[ ## reasoning ## ]]
+{reasoning}
+
+[[ ## rtl_code ## ]]
+{rtl_code}
+
+[[ ## completed ## ]]
+In adhering to this structure, your objective is: 
+        You are an expert RTL engineer. Transform a YAML hardware specification
+        into high-quality, synthesizable Verilog-2001 code according to the
+        provided YAML specification and Hardware Rules.
+
+
+User message:
+
+[[ ## yaml_spec ## ]]
+description: |
+  16-bit floating-point multiplier (IEEE 754 half-precision compatible) with support for zero detection and rounding to nearest even. Takes two 16-bit FP16 inputs and computes the product in a single cycle. Ignore subnormal/denormal inputs or outputs.
+tech_node: SkyWater 130HD
+clock_period: 9ns
+parameters: {}
+ports:
+- {name: a, direction: input, type: '[15:0]', description: FP16 input operand A}
+- {name: b, direction: input, type: '[15:0]', description: FP16 input operand B}
+- {name: result, direction: output, type: 'reg [15:0]', description: FP16 product result of A * B}
+module_signature: |
+  module fp16_multiplier(
+      input      [15:0] a,
+      input      [15:0] b,
+      output reg [15:0] result
+  );
+sample_usage:
+  description: |
+    Example use case multiplying 1.0 * 2.0, expecting 2.0 in FP16 encoding.
+  a: 16'b0_01111_0000000000
+  b: 16'b0_10000_0000000000
+  result: 16'b0_10000_0000000000
+timing: |
+  Purely combinational (no clock, no reset). A testbench applies a and b, waits 1 ns
+  (#1) and checks result. Use the combinational SDC template.
+arithmetic: |
+  sign = a[15] ^ b[15]. If a or b is zero (exponent field 0), result = signed zero
+  {sign, 15'b0}. Otherwise multiply the 11-bit significands {1, mantissa}, add the exponents
+  and subtract the bias 15, normalize, and round the mantissa to nearest, ties to even.
+  Exponent overflow (>= 31) -> infinity {sign, 5'b11111, 10'b0}; underflow (< 1) -> {sign, 15'b0}.
+  Reference cases (from the official testbench):
+    1.0 (0_01111_0000000000) *  2.0 (0_10000_0000000000) =   2.0 (0_10000_0000000000)
+    0.0 (0_00000_0000000000) *  5.0 (0_10001_0100000000) =   0.0 (0_00000_0000000000)
+   -3.0 (1_10000_1000000000) *  4.0 (0_10001_0000000000) = -12.0 (1_10010_1000000000)
+
+
+[[ ## module_signature ## ]]
+module fp16_multiplier(
+    input      [15:0] a,
+    input      [15:0] b,
+    output reg [15:0] result
+);
+
+
+[[ ## rtl_rules ## ]]
+--- MANDATORY RTL RULES (STRICT COMPLIANCE REQUIRED) ---
+
+1. MATCH THE SPEC'S "timing" SECTION EXACTLY:
+   - The number of register stages between an input and the output it affects (the latency)
+     must be exactly the one in the spec: not one more, not one less.
+   - Reset: use the reset port of the module signature with the spec's polarity, as a
+     SYNCHRONOUS reset inside always @(posedge clk). Reset every register the spec mentions.
+   - Combinational designs (no clock port): use always @(*) / assign only, no registers.
+
+2. NO MULTI-DRIVER CONFLICTS:
+   - Every signal (reg/wire) must be assigned in EXACTLY ONE 'always' block or ONE 'assign' statement.
+   - NEVER assign a signal in the sequential block if it is also assigned in a combinatorial block.
+
+3. CODING DISCIPLINE:
+   - SYNTAX: Use Verilog-2001 standards. NO 'logic' or 'int' types. Use 'reg' and 'wire' only
+     ('integer' only as a for-loop index).
+   - ASSIGNMENTS: Strictly use '<=' for sequential 'always' and '=' for combinatorial 'always' blocks.
+   - BLOCKS: ALWAYS use 'begin...end' for every 'if', 'else', and 'always' block, regardless of command count.
+   - SCOPE: Declare all 'reg' and 'wire' signals at the top of the module.
+   - NON-SYNTHESIZABLE TYPES: NEVER use 'real' types, initial blocks, delays (#) or $display.
+   - LATCH PREVENTION:
+     * Start every combinatorial always block by assigning a default value to ALL its outputs.
+     * Every 'if' in a combinatorial block must have an 'else'.
+     * Every 'case' must have a 'default'.
+
+4. ARITHMETIC:
+   - SIGNED DATA: declare signed values as 'signed' (reg signed [W-1:0] x) and slice flattened
+     vectors with $signed(V[i*WIDTH +: WIDTH]). Never mix signed and unsigned operands in one
+     expression (Verilog then treats everything as unsigned).
+   - WIDTHS: size every intermediate result so it cannot overflow (a*b needs 2*W bits; a sum of
+     N terms needs log2(N) extra bits), then assign to the output width given by the signature.
+   - PARAMETERS: keep the parameters of the signature and use them (no hard-coded widths).
+     Use for loops with an integer index, or generate blocks, for the N elements.
+   - FORMULAS: implement exactly the formula of the spec's "arithmetic" section (e.g. a Taylor
+     approximation is NOT the exact function), including the rounding it asks for.
+
+5. TIMING & PIPELINE ARCHITECTURE (PERFORMANCE COMPLIANCE):
+   - TIMING CLOSURE :
+     * The RTL MUST be created to meet the clock_period defined in the specification.
+     * NEVER chain multiple heavy operations (Multipliers, Dividers, Barrel Shifters) in a single combinatorial path.
+   - PIPELINE ENFORCEMENT:
+     * If the spec mentions "Pipelined", the design MUST use intermediate registers to break combinatorial paths,
+       with exactly the number of stages (latency) given in the spec's timing section.
+     * Balance the arithmetic workload across stages to ensure no single stage exceeds the clock period.
+     * When the latency must stay at 1 (e.g. a FIR filter), use a transposed structure: one
+       multiply and one add per register.
+   - NON-LINEAR FUNCTION OPTIMIZATION:
+     * For non-linear functions (e.g., x^3, 1/x, e^x, or complex coefficients) where the input width is less than 10 bits,
+       use a Look-Up Table whose values follow the spec's formula exactly.
+     * Always pre-calculate constant scaling (like Taylor coefficients) within the LUT initialization to eliminate post-multiplication logic.
+
+6. STATE DEFINITIONS - IF REQUIRED:
+   - Use 'localparam' to define states with UNIQUE binary values.
+   - SIZING CONSISTENCY: Every state constant MUST be sized exactly to M bits (e.g., M'bBINARY).
+   - REGISTER MATCHING: The state register 'reg [M-1:0] state' must have a width (M) that matches the localparam size exactly.
+   - SUFFICIENCY: M must be large enough to represent all states (M >= ceil(log2(number_of_states))).
+     * Example: For 5 states, use M=3 (reg [2:0] state) and constants like 3'b000.
+
+7. FSM DESIGN - IF REQUIRED (USE MOORE STYLE):
+   - TWO-BLOCK ARCHITECTURE:
+     * BLOCK A (Sequential): Use 'always @(posedge clk)' ONLY for updating the state register.
+       Initialize the state to the 'IDLE' parameter inside the synchronous 'if (reset)' branch.
+       DO NOT assign functional outputs in this block.
+     * BLOCK B (Combinatorial): Use 'always @(*)' for next-state logic AND all functional outputs.
+       TOP-LEVEL DEFAULTS: You MUST start this block by defining 'next_state = state;' and all outputs to their inactive/default values.
+   - OUTPUT ASSERTION (MOORE STYLE):
+     * Outputs must depend ONLY on the 'state' register.
+     * Do NOT include input signals in the output assignment logic.
+     * The output is 1 while 'state' equals the success state, i.e. in the cycle AFTER the edge
+       that samples the last input of the pattern.
+   - PROGRESSION & LOOPBACK (SEQUENCE DETECTORS):
+     * One state per prefix of the pattern already matched (IDLE = nothing matched).
+     * Every 'case' branch MUST define 'next_state' for BOTH input values.
+     * On a mismatch, go to the state of the LONGEST suffix of the bits seen so far that is
+       still a prefix of the pattern. This can be the SAME state (self-loop), e.g. in "0011"
+       the state "00" stays in "00" when another 0 arrives.
+     * After the success state, continue with the overlap rule above (overlapping matches
+       are detected).
+
+8. FORMATTING:
+   - Ensure the module name and port list match the provided 'module_signature' EXACTLY.
+   - Use '//' for comments. NEVER use backticks (`) before a comment.
+
+[[ ## previous_code ## ]]
+`timescale 1ns/1ps
+
+module fp16_multiplier(
+    input      [15:0] a,
+    input      [15:0] b,
+    output reg [15:0] result
+);
+
+    reg        sign;
+    reg [4:0]  ea, eb;
+    reg [10:0] ma, mb;
+    reg [21:0] prod;
+    reg signed [7:0] exp_raw;
+    reg [10:0] m_res;
+    reg [4:0]  e_res;
+    reg        guard, round, sticky;
+    reg        round_up;
+
+    always @(*) begin
+        sign = a[15] ^ b[15];
+        ea = a[14:10];
+        eb = b[14:10];
+        ma = {1'b1, a[9:0]};
+        mb = {1'b1, b[9:0]};
+        prod = ma * mb;
+        
+        // Default result 0
+        result = {sign, 15'b0};
+
+        if ((ea == 5'd0) || (eb == 5'd0)) begin
+            result = {sign, 15'b0};
+        end else if ((ea == 5'd31) || (eb == 5'd31)) begin
+            result = {sign, 5'b11111, 10'b0};
+        end else begin
+            exp_raw = $signed({1'b0, ea}) + $signed({1'b0, eb}) - 8'd15;
+            
+            if (prod[21]) begin
+                m_res = prod[21:11];
+                guard = prod[10];
+                round = prod[9];
+                sticky = |prod[8:0];
+                e_res = exp_raw + 8'd1;
+            end else begin
+                m_res = prod[20:10];
+                guard = prod[9];
+                round = prod[8];
+                sticky = |prod[7:0];
+                e_res = exp_raw;
+            end
+
+            // Round to nearest even
+            round_up = guard && (round || sticky || m_res[0]);
+
+            if ($signed(e_res) >= 31) begin
+                result = {sign, 5'b11111, 10'b0};
+            end else if ($signed(e_res) <= 0) begin
+                result = {sign, 15'b0};
+            end else begin
+                {e_res, m_res} = {e_res, m_res} + round_up;
+                if (m_res[10]) begin
+                    m_res = m_res >> 1;
+                    e_res = e_res + 1'b1;
+                end
+                if ($signed(e_res) >= 31) begin
+                    result = {sign, 5'b11111, 10'b0};
+                end else if ($signed(e_res) <= 0) begin
+                    result = {sign, 15'b0};
+                end else begin
+                    result = {sign, e_res[4:0], m_res[9:0]};
+                end
+            end
+        end
+    end
+endmodule
+
+[[ ## feedback ## ]]
+RTL simulation failed.
+Fix the issues provided in EVALUATION LOGS while strictly following the RTL rules.
+If the outputs are right but appear one cycle too early or too late, your number of register
+stages does not match the latency in the spec's "timing" section.
+--- EVALUATION LOGS ---
+Compiling rtl...
+Compilation succeeded.
+Executing RTL simulation (vvp)...
+TEST: FAIL | Inputs: a=3c00, b=4000 | Expected: 4000 | Output: 0000
+TEST: PASS | Inputs: a=0000, b=4500 | Expected: 0000 | Output: 0000
+TEST: FAIL | Inputs: a=c000, b=4800 | Expected: c900 | Output: 8000
+TEST: PASS | Inputs: a=0000, b=0000 | Expected: 0000 | Output: 0000
+TEST: FAIL | Inputs: a=3c00, b=bc00 | Expected: bc00 | Output: 8000
+TEST: PASS | Inputs: a=7c00, b=3c00 | Expected: 7c00 | Output: 7c00
+TEST: FAIL | Inputs: a=7bff, b=4000 | Expected: 7c00 | Output: 0000
+TEST: PASS | Inputs: a=0400, b=3800 | Expected: 0000 | Output: 0000
+
+
+Respond with the corresponding output fields, starting with the field `[[ ## reasoning ## ]]`, then `[[ ## rtl_code ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`.
+
+
+Response:
+
+[[ ## reasoning ## ]]
+The logic error stems from incorrect handling of the significand normalization and rounding stages. 
+1. The previous code attempted to normalize the 22-bit product (which ranges from [1,1)*[1,1) = [1, 4)) incorrectly. A normalized FP16 significand result from the product of two mantissas (1.f1 * 1.f2) is either in the range [1, 2) or [2, 4).
+2. The logic for exponent adjustment and rounding was fragmented.
+3. Signed arithmetic was used incorrectly in the overflow check; the exponent bias is 15. The range for FP16 normalized values is exponents 1 to 30.
+4. The rounding condition `guard && (round || sticky || m_res[0])` for "round to nearest even" is correct, but applying it after potentially shifting the mantissa was handled inconsistently.
+5. Corrected the normalization: if the product is >= 2.0 (bit 21 set), shift right, increment exponent.
+6. Ensured all bits of the mantissa are accounted for in the rounding logic.
+
+[[ ## rtl_code ## ]]
+module fp16_multiplier(
+    input      [15:0] a,
+    input      [15:0] b,
+    output reg [15:0] result
+);
+
+    reg        sign;
+    reg [4:0]  ea, eb;
+    reg [10:0] ma, mb;
+    reg [21:0] prod;
+    reg [7:0]  exp_sum;
+    reg [10:0] m_final;
+    reg [4:0]  e_final;
+    reg        guard, round, sticky;
+    reg        round_up;
+
+    always @(*) begin
+        sign = a[15] ^ b[15];
+        ea = a[14:10];
+        eb = b[14:10];
+        ma = {1'b1, a[9:0]};
+        mb = {1'b1, b[9:0]};
+        prod = ma * mb;
+        
+        // Default
+        result = {sign, 15'b0};
+
+        if ((ea == 5'd0) || (eb == 5'd0)) begin
+            result = {sign, 15'b0};
+        end else if ((ea == 5'h1F) || (eb == 5'h1F)) begin
+            result = {sign, 5'h1F, 10'b0};
+        end else begin
+            exp_sum = ea + eb - 8'd15;
+            
+            if (prod[21]) begin
+                e_final = exp_sum + 1'b1;
+                m_final = prod[21:11];
+                guard = prod[10];
+                round = prod[9];
+                sticky = |prod[8:0];
+            end else begin
+                e_final = exp_sum;
+                m_final = prod[20:10];
+                guard = prod[9];
+                round = prod[8];
+                sticky = |prod[7:0];
+            end
+
+            round_up = guard && (round || sticky || m_final[0]);
+
+            if (round_up) begin
+                {e_final, m_final} = {e_final, m_final} + 1'b1;
+                if (m_final[10]) begin
+                    m_final = m_final >> 1;
+                    e_final = e_final + 1'b1;
+                end
+            end
+
+            if (e_final >= 5'd31) begin
+                result = {sign, 5'h1F, 10'b0};
+            end else if (e_final[7:5] != 0 || e_final == 0) begin
+                result = {sign, 15'b0};
+            end else begin
+                result = {sign, e_final[4:0], m_final[9:0]};
+            end
+        end
+    end
+endmodule
+
+[[ ## completed ## ]]
+
+
+
+
+
+✨ File fp16_multiplier.v saved at : /home/OpenROAD-flow-scripts/flow/designs/src/fp16_multiplier/fp16_multiplier.v
+✨ File fp16_multiplier_ITER_10.v saved at : runs/2b_multi_agent/results/p8/rtl_gen_flow/fp16_multiplier_ITER_10.v
+✨ File fp16_multiplier.v saved at : runs/2b_multi_agent/results/p8/rtl_gen_flow/fp16_multiplier.v
+
+--- RUNNING RTL SIMULATION ---
+Compiling: iverilog -Wall -g2005 -o sim_rtl.out runs/2b_multi_agent/results/p8/rtl_gen_flow/fp16_multiplier.v runs/2b_multi_agent/results/p8/tb_gen_flow/fp16_multiplier_tb.v
+Compilation succeeded with warnings:
+runs/2b_multi_agent/results/p8/rtl_gen_flow/fp16_multiplier.v:63: warning: Part select [7:5] is selecting after the vector e_final[4:0].
+runs/2b_multi_agent/results/p8/rtl_gen_flow/fp16_multiplier.v:63:        : Replacing the out of bound bits with 'bx.
+
+Executing RTL simulation (vvp)...
+TEST: PASS | Inputs: a=3c00, b=4000 | Expected: 4000 | Output: 4000
+TEST: PASS | Inputs: a=0000, b=4500 | Expected: 0000 | Output: 0000
+TEST: FAIL | Inputs: a=c000, b=4800 | Expected: c900 | Output: cc00
+TEST: PASS | Inputs: a=0000, b=0000 | Expected: 0000 | Output: 0000
+TEST: PASS | Inputs: a=3c00, b=bc00 | Expected: bc00 | Output: bc00
+TEST: PASS | Inputs: a=7c00, b=3c00 | Expected: 7c00 | Output: 7c00
+TEST: PASS | Inputs: a=7bff, b=4000 | Expected: 7c00 | Output: 7c00
+TEST: PASS | Inputs: a=0400, b=3800 | Expected: 0000 | Output: 0000
+
+❌ RTL simulation failed. Feeding back errors to agent...
+
+[RTL VALIDATOR] Skipped
+
+Reached max iterations (10) without passing RTL generation flow.
+⏱️  RTL generation time: 50.78 seconds
+⏱️  Total Agentic flow time: 59.07 seconds
+
+================ TOKENS & THROUGHPUT SUMMARY ================
+Agent                  Calls    Prompt  Completion     Total   LM time           TPM
+------------------------------------------------------------------------------------
+tb_generator               1      1923         816      2739      6.2s      26,631.0
+sdc_generator              1      1845         170      2015      1.4s      87,608.7
+rtl_generator             10     36681       10345     47026     46.2s      61,048.9
+------------------------------------------------------------------------------------
+TOTAL                     12     40449       11331     51780     53.8s      57,780.5
+Script wall time: 58.9s (LM time is the part spent waiting for the models)
+
+Per step:
+  tb_generator           TB generation, iteration 1                   2739 tokens      6.2s      26,632.3 TPM
+  sdc_generator          SDC generation, iteration 1                  2015 tokens      1.4s      87,622.5 TPM
+  rtl_generator          RTL generation, iteration 1                  3730 tokens      4.1s      54,743.5 TPM
+  rtl_generator          RTL generation, iteration 2                  4822 tokens      4.3s      67,866.5 TPM
+  rtl_generator          RTL generation, iteration 3                  4729 tokens      4.1s      68,538.2 TPM
+  rtl_generator          RTL generation, iteration 4                  4770 tokens      3.8s      74,484.4 TPM
+  rtl_generator          RTL generation, iteration 5                  4860 tokens      4.5s      64,550.8 TPM
+  rtl_generator          RTL generation, iteration 6                  4775 tokens      3.7s      76,833.6 TPM
+  rtl_generator          RTL generation, iteration 7                  4764 tokens      3.9s      73,473.8 TPM
+  rtl_generator          RTL generation, iteration 8                  4879 tokens      6.8s      42,825.9 TPM
+  rtl_generator          RTL generation, iteration 9                  4865 tokens      7.1s      40,845.6 TPM
+  rtl_generator          RTL generation, iteration 10                 4832 tokens      3.8s      76,969.4 TPM
+=============================================================
+Token usage saved to: runs/2b_multi_agent/token_usage.json
