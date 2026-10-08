@@ -11,11 +11,13 @@
 #   - KLayout: klayout.org has no ARM .deb, so it is built from source (batch mode, no GUI,
 #     enough for the GDS merge of the flow; qmake is still needed to build it).
 #     If that build fails, Ubuntu's klayout package is used.
+#   - git downloads are retried (gclone) and the OpenROAD clone is cached separately from its build:
+#     an unstable network no longer restarts the whole step.
 #   - BAZEL_JOBS limits the parallel OpenROAD build jobs (default 4): each job can take 2-3 GB.
 #     In Docker Desktop give the VM at least 16 GB of RAM (Settings > Resources), or lower BAZEL_JOBS:
 #       docker build -f Dockerfile.arm64 --build-arg BAZEL_JOBS=2 -t vlsi-soc26-ai .
 # =============================================================================
-FROM --platform=linux/arm64 ubuntu:22.04
+FROM ubuntu:22.04
 ENV DEBIAN_FRONTEND=noninteractive
 ARG APT_COMMAND="apt-get -o Acquire::Retries=3 -y"
 ARG BAZEL_JOBS=4
@@ -26,23 +28,47 @@ RUN ${APT_COMMAND} update && ${APT_COMMAND} install wget curl build-essential gc
     libffi-dev libfl-dev libreadline-dev pkg-config tcl-dev zlib1g-dev graphviz xdot \
     python3-dev libexpat1-dev libcurl4-openssl-dev libgit2-dev time qtbase5-dev qt5-qmake
 
+# robust downloads: slow or unstable networks (Wi-Fi, WSL) often drop long git clones #
+#   gclone URL DIR [git clone options]: up to 5 attempts, then the submodules with up to 5 attempts #
+RUN git config --global http.version HTTP/1.1 && git config --global http.postBuffer 524288000 && \
+    printf '%s\n' '#!/bin/sh' \
+    'url="$1"; dir="$2"; shift 2' \
+    'for i in 1 2 3 4 5; do' \
+    '  rm -rf "$dir"' \
+    '  git clone "$@" "$url" "$dir" && break' \
+    '  [ "$i" = 5 ] && { echo "git clone of $url failed 5 times"; exit 1; }' \
+    '  echo "git clone failed (attempt $i/5), retrying in 30 s ..."; sleep 30' \
+    'done' \
+    'cd "$dir" || exit 1' \
+    '[ -f .gitmodules ] || exit 0' \
+    'for i in 1 2 3 4 5; do' \
+    '  git submodule update --init --recursive && exit 0' \
+    '  echo "submodule update failed (attempt $i/5), retrying in 30 s ..."; sleep 30' \
+    'done' \
+    'exit 1' > /usr/local/bin/gclone && chmod +x /usr/local/bin/gclone
+
 # installing OpenROAD with bazel #
 WORKDIR /home
 RUN wget https://github.com/bazelbuild/bazelisk/releases/latest/download/bazelisk-linux-arm64 && \
     chmod +x bazelisk-linux-arm64 && mv bazelisk-linux-arm64 /usr/local/bin/bazel && bazel --version
 
-RUN git clone --recursive https://github.com/The-OpenROAD-Project/OpenROAD.git && \
-    cd OpenROAD && bazel build --jobs=${BAZEL_JOBS} //:openroad
+# clone and build are separate steps: if the build fails, the clone is cached and not downloaded again #
+RUN gclone https://github.com/The-OpenROAD-Project/OpenROAD.git OpenROAD --filter=blob:none
+# Bazel downloads its own dependencies: retry, the downloads that already finished are reused #
+RUN cd OpenROAD && for i in 1 2 3; do \
+      bazel build --jobs=${BAZEL_JOBS} //:openroad && break; \
+      [ "$i" = 3 ] && exit 1; echo "bazel build failed (attempt $i/3), retrying ..."; sleep 30; \
+    done
 
 # installing PIP #
 RUN curl -sSL https://bootstrap.pypa.io/get-pip.py -o get-pip.py && python3 get-pip.py && rm get-pip.py
 
 # installing YOSYS #
-RUN git clone https://github.com/YosysHQ/yosys.git && pip3 install cmake && cd yosys && git submodule update --init && cmake -B build . -DCMAKE_BUILD_TYPE=Release && \
+RUN gclone https://github.com/YosysHQ/yosys.git yosys --filter=blob:none && pip3 install cmake && cd yosys && cmake -B build . -DCMAKE_BUILD_TYPE=Release && \
     cmake --build build --config Release --parallel $(nproc) && cmake --install build --strip
 
 # installing KLayout: from source (no Qt / GUI, Python macros enabled), else Ubuntu's package #
-RUN ( git clone --depth 1 -b v${KLAYOUT_VERSION} https://github.com/KLayout/klayout.git /tmp/klayout && \
+RUN ( gclone https://github.com/KLayout/klayout.git /tmp/klayout --depth 1 -b v${KLAYOUT_VERSION} && \
       cd /tmp/klayout && \
       ./build.sh -without-qt -noruby -python python3 -prefix /opt/klayout -option -j$(nproc) && \
       printf '#!/bin/sh\nexport LD_LIBRARY_PATH=/opt/klayout:$LD_LIBRARY_PATH\nexec /opt/klayout/klayout "$@"\n' > /usr/local/bin/klayout && \
@@ -52,7 +78,7 @@ RUN ( git clone --depth 1 -b v${KLAYOUT_VERSION} https://github.com/KLayout/klay
     rm -rf /tmp/klayout
 
 # installing OpenROAD flow scripts #
-RUN git clone https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts.git
+RUN gclone https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts.git OpenROAD-flow-scripts --filter=blob:none
 
 # setting the enviroment variables for OpenROAD and YOSYS #
 ENV OPENROAD_EXE=/home/OpenROAD/bazel-bin/openroad
