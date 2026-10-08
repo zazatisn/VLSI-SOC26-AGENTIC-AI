@@ -1,0 +1,29 @@
+# Rescue presets: which runs make_rescue.py records. Edit freely.
+#   part 1 entries: task = sentiment | google_single | google_iterative (+ design for Google)
+#   parts 2-4 entries: run = run config name in run_configs/ (without .yaml), design = spec in designs/
+# Every entry runs from the part's solution/ folder (golden prompts) unless you add  variant: problem
+
+# Everything you show live in the tutorial (about 1-2 hours of runs, mostly OpenROAD)
+tutorial:
+  - {part: 1, task: sentiment}
+  - {part: 1, task: google_single, design: enc_bin2gray}
+  - {part: 1, task: google_iterative, design: enc_bin2gray}
+  - {part: 2, run: 2a_single_agent, design: p1.yaml}
+  - {part: 2, run: 2b_multi_agent, design: p1.yaml}
+  - {part: 2, run: 2c_multi_agent_mixed_models, design: p1.yaml}
+  - {part: 2, run: 2d_multi_agent_mixed_models_validators, design: p1.yaml}
+  - {part: 2, run: 2b_multi_agent, design: p8.yaml}
+  - {part: 3, run: 3_multi_agent_collaboration, design: p5.yaml}
+  - {part: 4, run: 4a_orchestrator_claude, design: p1.yaml}
+  - {part: 4, run: 4a_orchestrator_claude, design: p14.yaml}
+
+# A short set: one run per part
+quick:
+  - {part: 1, task: sentiment}
+  - {part: 2, run: 2b_multi_agent, design: p11.yaml}
+  - {part: 3, run: 3_multi_agent_collaboration, design: p14.yaml}
+  - {part: 4, run: 4a_orchestrator_claude, design: p11.yaml}
+
+# Only the cloud-free runs (if the API is the risk): Part 2 run with every agent on the local model
+local_only:
+  - {part: 2, run: 2b_multi_agent, design: p11.yaml, extra_args: ["--profile", "ollama-llama3.1"]}

@@ -1,0 +1,11 @@
+# Bugs injected into the golden RTL of p13 to measure how strong a testbench is.
+# Each mutant replaces the text 'find' of the golden RTL by 'replace'. A good testbench FAILS on every one.
+- name: window excludes current sample
+  find: wire [9:0] total = data_in + s0 + s1 + s2;
+  replace: "reg [7:0] s3; always @(posedge clk) s3 <= s2;\n    wire [9:0] total = s0 + s1 + s2 + s3;"
+- name: 8-bit sum overflows
+  find: wire [9:0] total = data_in + s0 + s1 + s2;
+  replace: wire [7:0] t8 = data_in + s0 + s1 + s2; wire [9:0] total = {2'b0, t8};
+- name: divides by 2 instead of 4
+  find: data_out <= total[9:2];
+  replace: data_out <= total[8:1];

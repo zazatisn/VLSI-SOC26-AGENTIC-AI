@@ -1,0 +1,19 @@
+{
+  "id": "part1-google_single-enc_bin2gray",
+  "entry": {
+    "part": 1,
+    "task": "google_single",
+    "design": "enc_bin2gray"
+  },
+  "cwd": "part1/google_verification/solution",
+  "command": [
+    "python3",
+    "single_pass.py",
+    "enc_bin2gray"
+  ],
+  "recorded": "2026-10-08T09:30:31",
+  "duration_s": 18.6,
+  "exit_code": 0,
+  "git_commit": "",
+  "mutant_result": "1"
+}

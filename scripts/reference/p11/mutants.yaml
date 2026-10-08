@@ -1,0 +1,11 @@
+# Bugs injected into the golden RTL of p11 to measure how strong a testbench is.
+# Each mutant replaces the text 'find' of the golden RTL by 'replace'. A good testbench FAILS on every one.
+- name: no hold when en=0
+  find: else if (en) count <= count + 8'd1;
+  replace: else count <= count + 8'd1;
+- name: stops at 255
+  find: else if (en) count <= count + 8'd1;
+  replace: else if (en && count != 8'hff) count <= count + 8'd1;
+- name: reset ignored
+  find: if (reset)   count <= 8'd0;
+  replace: if (1'b0)    count <= 8'd0;

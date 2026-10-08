@@ -1,0 +1,11 @@
+# Bugs injected into the golden RTL of p5 to measure how strong a testbench is.
+# Each mutant replaces the text 'find' of the golden RTL by 'replace'. A good testbench FAILS on every one.
+- name: latency 1 (products not registered)
+  find: sum = sum + prod[i];
+  replace: 'sum = sum + $signed(A[i*WIDTH +: WIDTH]) * $signed(B[i*WIDTH +: WIDTH]);'
+- name: unsigned products
+  find: '$signed(A[i*WIDTH +: WIDTH]) * $signed(B[i*WIDTH +: WIDTH])'
+  replace: 'A[i*WIDTH +: WIDTH] * B[i*WIDTH +: WIDTH]'
+- name: dot_out not cleared by reset
+  find: if (rst) dot_out <= 0;
+  replace: if (1'b0) dot_out <= 0;

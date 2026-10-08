@@ -1,0 +1,71 @@
+sync_fifo:
+  description: >
+    A synchronous FIFO (first in, first out) of DEPTH words of WIDTH bits, with one clock for
+    reading and writing. Writes are dropped when the FIFO is full and reads are ignored when it
+    is empty. The read data is registered.
+  tech_node: SkyWater 130HD
+  clock_period: 2.0ns
+  parameters:
+    WIDTH: 8      # Bits per word
+    DEPTH: 8      # Number of words (a power of 2)
+  ports:
+    - name: clk
+      direction: input
+      type: wire
+      description: Clock input (rising edge)
+    - name: reset
+      direction: input
+      type: wire
+      description: Synchronous reset (active high) - empties the FIFO and clears dout.
+    - name: wr_en
+      direction: input
+      type: wire
+      description: Write din at the rising edge (ignored when full).
+    - name: rd_en
+      direction: input
+      type: wire
+      description: Read the oldest word into dout at the rising edge (ignored when empty).
+    - name: din
+      direction: input
+      type: "[WIDTH-1:0]"
+      description: Write data
+    - name: dout
+      direction: output
+      type: reg [WIDTH-1:0]
+      description: Registered read data. Keeps its value when no read happens.
+    - name: full
+      direction: output
+      type: wire
+      description: 1 when DEPTH words are stored (combinational from the internal state).
+    - name: empty
+      direction: output
+      type: wire
+      description: 1 when no word is stored (combinational from the internal state).
+  module_signature: |
+    module sync_fifo #(
+        parameter WIDTH = 8,
+        parameter DEPTH = 8
+    ) (
+        input                  clk,
+        input                  reset,
+        input                  wr_en,
+        input                  rd_en,
+        input      [WIDTH-1:0] din,
+        output reg [WIDTH-1:0] dout,
+        output                 full,
+        output                 empty
+    );
+  logic_rules:
+    - At a rising edge a write happens if wr_en = 1 and full = 0, and a read happens if rd_en = 1 and empty = 0. full and empty are the values BEFORE the edge.
+    - When full, a write request is dropped even if a read happens at the same edge.
+    - When empty, a read request is ignored even if a write happens at the same edge (dout keeps its value).
+    - When neither full nor empty, a read and a write can happen at the same edge.
+    - A read loads the oldest stored word into dout at that edge (registered read, NOT first-word fall-through).
+    - After reset - empty = 1, full = 0, dout = 0.
+  sample_input:  "write 10, write 11, write 12, read, read, read, read"
+  sample_output: "dout after each read: 10, 11, 12, 12 (the 4th read is ignored: FIFO empty); empty = 1 at the end"
+  timing: |
+    State changes at rising edges. dout shows the word read at rising edge k right after edge k
+    (latency 1). full and empty follow the stored count right after each edge.
+    Race-free testbench: drive wr_en, rd_en and din on a falling edge, check dout, full and empty
+    on the next falling edge. Keep a model queue in the testbench to predict them.

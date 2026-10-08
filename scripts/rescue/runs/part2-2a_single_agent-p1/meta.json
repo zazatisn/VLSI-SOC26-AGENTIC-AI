@@ -1,0 +1,23 @@
+{
+  "id": "part2-2a_single_agent-p1",
+  "entry": {
+    "part": 2,
+    "run": "2a_single_agent",
+    "design": "p1.yaml"
+  },
+  "cwd": "part2/solution",
+  "command": [
+    "python3",
+    "asic_autonomous_flow.py",
+    "--config",
+    "run_configs/2a_single_agent.yaml",
+    "--design",
+    "p1.yaml"
+  ],
+  "recorded": "2026-10-08T09:33:27",
+  "duration_s": 167.4,
+  "exit_code": 0,
+  "git_commit": "",
+  "tokens_total": 198983,
+  "status": "failed"
+}

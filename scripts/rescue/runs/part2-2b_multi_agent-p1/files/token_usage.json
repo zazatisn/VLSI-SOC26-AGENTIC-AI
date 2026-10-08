@@ -1,0 +1,114 @@
+{
+  "design": "p1.yaml",
+  "agent_mode": "multi",
+  "wall_time_s": 79.0,
+  "total": {
+    "prompt_tokens": 13756,
+    "completion_tokens": 2728,
+    "total_tokens": 16484,
+    "calls": 5,
+    "duration_s": 37.293,
+    "tps": 442.01,
+    "tpm": 26520.79
+  },
+  "per_agent": {
+    "tb_generator": {
+      "prompt_tokens": 1591,
+      "completion_tokens": 710,
+      "total_tokens": 2301,
+      "calls": 1,
+      "duration_s": 17.088,
+      "tps": 134.66,
+      "tpm": 8079.35
+    },
+    "sdc_generator": {
+      "prompt_tokens": 1528,
+      "completion_tokens": 358,
+      "total_tokens": 1886,
+      "calls": 1,
+      "duration_s": 1.743,
+      "tps": 1082.04,
+      "tpm": 64922.55
+    },
+    "rtl_generator": {
+      "prompt_tokens": 2371,
+      "completion_tokens": 835,
+      "total_tokens": 3206,
+      "calls": 1,
+      "duration_s": 12.819,
+      "tps": 250.1,
+      "tpm": 15005.85
+    },
+    "config_mk_generator": {
+      "prompt_tokens": 8266,
+      "completion_tokens": 825,
+      "total_tokens": 9091,
+      "calls": 2,
+      "duration_s": 5.643,
+      "tps": 1611.02,
+      "tpm": 96661.35
+    }
+  },
+  "calls": [
+    {
+      "agent": "tb_generator",
+      "step": "TB generation, iteration 1",
+      "model": "gemini/gemini-3.1-flash-lite",
+      "prompt_tokens": 1591,
+      "completion_tokens": 710,
+      "total_tokens": 2301,
+      "cached": false,
+      "duration_s": 17.088,
+      "tps": 134.66,
+      "tpm": 8079.4
+    },
+    {
+      "agent": "sdc_generator",
+      "step": "SDC generation, iteration 1",
+      "model": "gemini/gemini-3.1-flash-lite",
+      "prompt_tokens": 1528,
+      "completion_tokens": 358,
+      "total_tokens": 1886,
+      "cached": false,
+      "duration_s": 1.743,
+      "tps": 1081.93,
+      "tpm": 64915.5
+    },
+    {
+      "agent": "rtl_generator",
+      "step": "RTL generation, iteration 1",
+      "model": "gemini/gemini-3.1-flash-lite",
+      "prompt_tokens": 2371,
+      "completion_tokens": 835,
+      "total_tokens": 3206,
+      "cached": false,
+      "duration_s": 12.819,
+      "tps": 250.09,
+      "tpm": 15005.7
+    },
+    {
+      "agent": "config_mk_generator",
+      "step": "config.mk generation, iteration 1",
+      "model": "gemini/gemini-3.1-flash-lite",
+      "prompt_tokens": 3884,
+      "completion_tokens": 420,
+      "total_tokens": 4304,
+      "cached": false,
+      "duration_s": 2.158,
+      "tps": 1994.42,
+      "tpm": 119665.1
+    },
+    {
+      "agent": "config_mk_generator",
+      "step": "config.mk generation, iteration 2",
+      "model": "gemini/gemini-3.1-flash-lite",
+      "prompt_tokens": 4382,
+      "completion_tokens": 405,
+      "total_tokens": 4787,
+      "cached": false,
+      "duration_s": 3.485,
+      "tps": 1373.48,
+      "tpm": 82408.5
+    }
+  ]
+}

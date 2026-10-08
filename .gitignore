@@ -14,3 +14,5 @@ scripts/part1/**/sim_out
 # Local development archive and reference repositories
 scripts/part2/_dev_archive/
 tests/
+# Build outputs of reference/make_reference.py (the generated pN.json files ARE committed)
+scripts/reference/p*/build/

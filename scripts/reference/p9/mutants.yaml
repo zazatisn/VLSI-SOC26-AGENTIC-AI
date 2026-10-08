@@ -1,0 +1,13 @@
+# Bugs injected into the golden RTL of p9 to measure how strong a testbench is.
+# Each mutant replaces the text 'find' of the golden RTL by 'replace'. A good testbench FAILS on every one.
+- name: unsigned coefficients
+  find: 'y_out <= z[1] + $signed(h[0 +: WIDTH]) * x_in;'
+  replace: 'y_out <= z[1] + h[0 +: WIDTH] * x_in;'
+- name: misses the oldest tap
+  find: 'z[N-1] <= $signed(h[(N-1)*WIDTH +: WIDTH]) * x_in;'
+  replace: z[N-1] <= 0;
+- name: latency 2 (extra output register)
+  find: 'y_out <= z[1] + $signed(h[0 +: WIDTH]) * x_in;'
+  replace: 'y_pre <= z[1] + $signed(h[0 +: WIDTH]) * x_in; y_out <= y_pre;'
+  also_find: reg signed [OW-1:0] z [1:N-1];
+  also_replace: "reg signed [OW-1:0] z [1:N-1];\n    reg signed [OW-1:0] y_pre;"

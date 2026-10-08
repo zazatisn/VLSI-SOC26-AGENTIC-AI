@@ -1,0 +1,15 @@
+# Bugs injected into the golden RTL of p12 to measure how strong a testbench is.
+# Each mutant replaces the text 'find' of the golden RTL by 'replace'. A good testbench FAILS on every one.
+- name: reset ignored
+  find: if (reset) sum <= 8'd0;
+  replace: if (1'b0) sum <= 8'd0;
+- name: saturating add
+  find: else       sum <= a + b;
+  replace: 'else       sum <= ({1''b0,a} + b > 255) ? 8''hff : a + b;'
+- name: latency 2
+  find: else       sum <= a + b;
+  replace: else begin s_d <= a + b; sum <= s_d; end
+  also_find: 'output reg [7:0] sum
+
+    );'
+  also_replace: "output reg [7:0] sum\n);\n    reg [7:0] s_d;"

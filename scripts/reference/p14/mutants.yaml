@@ -1,0 +1,14 @@
+# Bugs injected into the golden RTL of p14 to measure how strong a testbench is.
+# Each mutant replaces the text 'find' of the golden RTL by 'replace'. A good testbench FAILS on every one.
+- name: SUB carry not a borrow
+  find: '3''b001: begin t = {1''b0, a} - {1''b0, b}; r = t[7:0]; c = t[8];  end'
+  replace: '3''b001: begin t = {1''b0, a} - {1''b0, b}; r = t[7:0]; c = ~t[8]; end'
+- name: signed SLT
+  find: 'default: r = (a < b) ? 8''d1 : 8''d0;'
+  replace: 'default: r = ($signed(a) < $signed(b)) ? 8''d1 : 8''d0;'
+- name: arithmetic SHR
+  find: '3''b110: begin r = {1''b0, a[7:1]}; c = a[0]; end'
+  replace: '3''b110: begin r = {a[7], a[7:1]}; c = a[0]; end'
+- name: zero flag from inputs
+  find: zero <= (r == 8'd0);
+  replace: zero <= (a == 8'd0);

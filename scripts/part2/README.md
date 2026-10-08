@@ -112,9 +112,12 @@ The script must be started **from its own folder** (`problem/` or `solution/`).
 | `p7.yaml` | `exp_fixed_point`: Taylor e^x, 2-stage pipeline | 4.5 ns | 2 register stages | yes |
 | `p8.yaml` | `fp16_multiplier`: combinational | 9 ns | none (combinational) | yes |
 | `p9.yaml` | `fir_filter`: signed, 8 taps | 8 ns | 1 (registered output) | yes |
-| `p11.yaml` | `simple_8bit_counter`: very quick | 2.0 ns | 1 | no |
-| `p12.yaml` | `registered_adder_8bit`: very quick | 1.5 ns | 1 | no |
-| `p13.yaml` | `sliding_window_avg_8bit` | 2.5 ns | 1 | no |
+| `p11.yaml` | `simple_8bit_counter`: very quick | 2.0 ns | 1 | after `make_reference.py` |
+| `p12.yaml` | `registered_adder_8bit`: very quick | 1.5 ns | 1 | after `make_reference.py` |
+| `p13.yaml` | `sliding_window_avg_8bit` | 2.5 ns | 1 | after `make_reference.py` |
+| `p14.yaml` | `alu_8bit`: 8 operations, zero/carry flags | 2.5 ns | 1 | after `make_reference.py` |
+| `p15.yaml` | `uart_tx`: UART transmitter, FSM + counters | 2.0 ns | frame of 10 × 8 cycles | after `make_reference.py` |
+| `p16.yaml` | `sync_fifo`: 8 × 8 FIFO, full/empty | 2.0 ns | 1 (registered read) | after `make_reference.py` |
 
 ```bash
 python3 asic_autonomous_flow.py --config run_configs/2b_multi_agent.yaml --design p1.yaml
@@ -125,8 +128,21 @@ sample values line up with the clock. Some also have an **`arithmetic`** section
 formula and reference values. The testbench agent and the RTL agent must both follow it, or a
 correct RTL fails a testbench that checks one cycle too early or too late.
 
-> `p11`–`p13` have no reference results in `evaluation/`. They run the whole flow (good for a
-> quick demo), and the layout is accepted without a PPA score.
+> `p11`–`p16` get a PPA score once their reference results exist: run
+> `python3 ../../reference/make_reference.py` once in the container (see `scripts/reference/README.md`).
+> Until then they run the whole flow and the layout is accepted without a score.
+
+Every design also has a **reference testbench** (`evaluation/visible/pN/*_tb.v`) and a **golden RTL**
+(`scripts/reference/pN/`). The flow only runs the testbench the agent wrote, so use them to check
+the agent's work independently:
+
+```bash
+cd /home/scripts/reference
+# Sign-off: is the agent's final RTL really correct?
+python3 check_designs.py -d p8 --rtl ../part2/problem/runs/2b_multi_agent/solution/p8/fp16_multiplier.v
+# How strong is the agent's testbench? (it must pass the golden RTL and fail on planted bugs)
+python3 check_designs.py -d p8 --tb ../part2/problem/runs/2b_multi_agent/results/p8/tb_gen_flow/fp16_multiplier_tb.v
+```
 
 ---
 
@@ -147,7 +163,8 @@ You do **not** modify the script. You improve the agents through their `Agent.md
 - The single agent has to follow **all** the rules at once. Does it do better or worse than the team?
 - Which agents can run on a small local model (2c), and which need a stronger one?
 - What should a validator check that the simulator cannot (2d)? Is it worth the extra tokens?
-- Do your rules generalize across designs (`--design p1.yaml`, `p5.yaml`, ...)?
+- Do your rules generalize across designs (`--design p1.yaml`, `p5.yaml`, `p14.yaml` ...)?
+- The flow says PASS. Does sign-off agree? How many planted bugs does the agent's testbench catch?
 
 ---
 
@@ -342,6 +359,6 @@ so you can compare runs 2a–2d. A call answered from the cache (`cache: true`) 
 | Ollama connection errors / model not found | `ollama pull llama3.1` (the server starts with the container) |
 | Rate limit errors (free tier) | Wait a bit, or move some agents to the local model |
 | `503 UNAVAILABLE` / "model is overloaded" / `429 RESOURCE_EXHAUSTED` (Gemini) | High demand on the Google API. Re-run the same command after a short wait. If it keeps failing, use `gemini_lite` instead of `gemini_preview` (`active_profile` in the agent's `config.yaml`), or move some agents to the local model |
-| `OpenROAD evaluation failed` | Check `runs/<run>/results/<design>/physical_flow/*eval*.log`. Designs without reference results (`p11`–`p13`) are not scored |
+| `OpenROAD evaluation failed` | Check `runs/<run>/results/<design>/physical_flow/*eval*.log`. Designs without reference results (`p11`–`p16` until you run `reference/make_reference.py`) are not scored |
 | RTL keeps failing a simulation with values one cycle early/late | The testbench and the RTL disagree on the latency: both prompts must follow the spec's `timing` section |
 | `Tool 'openroad' not found in PATH` | Run inside the Docker container |

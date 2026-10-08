@@ -1,0 +1,225 @@
+{
+  "design": "p5.yaml",
+  "agent_mode": "multi",
+  "wall_time_s": 105.0,
+  "total": {
+    "prompt_tokens": 43910,
+    "completion_tokens": 10694,
+    "total_tokens": 54604,
+    "calls": 15,
+    "duration_s": 76.198,
+    "tps": 716.61,
+    "tpm": 42996.4
+  },
+  "per_agent": {
+    "tb_generator": {
+      "prompt_tokens": 10863,
+      "completion_tokens": 4471,
+      "total_tokens": 15334,
+      "calls": 4,
+      "duration_s": 17.774,
+      "tps": 862.72,
+      "tpm": 51763.25
+    },
+    "sdc_generator": {
+      "prompt_tokens": 1810,
+      "completion_tokens": 287,
+      "total_tokens": 2097,
+      "calls": 1,
+      "duration_s": 1.428,
+      "tps": 1468.49,
+      "tpm": 88109.24
+    },
+    "rtl_generator": {
+      "prompt_tokens": 31237,
+      "completion_tokens": 5936,
+      "total_tokens": 37173,
+      "calls": 10,
+      "duration_s": 56.996,
+      "tps": 652.2,
+      "tpm": 39132.22
+    }
+  },
+  "calls": [
+    {
+      "agent": "tb_generator",
+      "step": "TB generation, iteration 1",
+      "model": "gemini/gemini-3.1-flash-lite",
+      "prompt_tokens": 1934,
+      "completion_tokens": 1082,
+      "total_tokens": 3016,
+      "cached": false,
+      "duration_s": 6.577,
+      "tps": 458.59,
+      "tpm": 27515.5
+    },
+    {
+      "agent": "tb_generator",
+      "step": "TB generation, iteration 2",
+      "model": "gemini/gemini-3.1-flash-lite",
+      "prompt_tokens": 3061,
+      "completion_tokens": 1089,
+      "total_tokens": 4150,
+      "cached": false,
+      "duration_s": 3.65,
+      "tps": 1137.0,
+      "tpm": 68219.8
+    },
+    {
+      "agent": "tb_generator",
+      "step": "TB generation, iteration 3",
+      "model": "gemini/gemini-3.1-flash-lite",
+      "prompt_tokens": 2861,
+      "completion_tokens": 1059,
+      "total_tokens": 3920,
+      "cached": false,
+      "duration_s": 3.574,
+      "tps": 1096.82,
+      "tpm": 65809.5
+    },
+    {
+      "agent": "tb_generator",
+      "step": "TB generation, iteration 4",
+      "model": "gemini/gemini-3.1-flash-lite",
+      "prompt_tokens": 3007,
+      "completion_tokens": 1241,
+      "total_tokens": 4248,
+      "cached": false,
+      "duration_s": 3.973,
+      "tps": 1069.14,
+      "tpm": 64148.5
+    },
+    {
+      "agent": "sdc_generator",
+      "step": "SDC generation, iteration 1",
+      "model": "gemini/gemini-3.1-flash-lite",
+      "prompt_tokens": 1810,
+      "completion_tokens": 287,
+      "total_tokens": 2097,
+      "cached": false,
+      "duration_s": 1.428,
+      "tps": 1468.34,
+      "tpm": 88100.6
+    },
+    {
+      "agent": "rtl_generator",
+      "step": "RTL generation, iteration 1",
+      "model": "gemini/gemini-3.1-flash-lite",
+      "prompt_tokens": 2714,
+      "completion_tokens": 571,
+      "total_tokens": 3285,
+      "cached": false,
+      "duration_s": 2.519,
+      "tps": 1304.17,
+      "tpm": 78250.2
+    },
+    {
+      "agent": "rtl_generator",
+      "step": "RTL generation, iteration 2",
+      "model": "gemini/gemini-3.1-flash-lite",
+      "prompt_tokens": 3358,
+      "completion_tokens": 742,
+      "total_tokens": 4100,
+      "cached": false,
+      "duration_s": 2.994,
+      "tps": 1369.6,
+      "tpm": 82176.0
+    },
+    {
+      "agent": "rtl_generator",
+      "step": "RTL generation, iteration 3",
+      "model": "gemini/gemini-3.1-flash-lite",
+      "prompt_tokens": 3158,
+      "completion_tokens": 670,
+      "total_tokens": 3828,
+      "cached": false,
+      "duration_s": 3.013,
+      "tps": 1270.46,
+      "tpm": 76227.3
+    },
+    {
+      "agent": "rtl_generator",
+      "step": "RTL generation, iteration 4",
+      "model": "gemini/gemini-3.1-flash-lite",
+      "prompt_tokens": 3137,
+      "completion_tokens": 644,
+      "total_tokens": 3781,
+      "cached": false,
+      "duration_s": 3.281,
+      "tps": 1152.35,
+      "tpm": 69141.2
+    },
+    {
+      "agent": "rtl_generator",
+      "step": "RTL generation, iteration 5",
+      "model": "gemini/gemini-3.1-flash-lite",
+      "prompt_tokens": 3193,
+      "completion_tokens": 552,
+      "total_tokens": 3745,
+      "cached": false,
+      "duration_s": 12.621,
+      "tps": 296.72,
+      "tpm": 17803.2
+    },
+    {
+      "agent": "rtl_generator",
+      "step": "RTL generation, iteration 6",
+      "model": "gemini/gemini-3.1-flash-lite",
+      "prompt_tokens": 3190,
+      "completion_tokens": 576,
+      "total_tokens": 3766,
+      "cached": false,
+      "duration_s": 4.122,
+      "tps": 913.62,
+      "tpm": 54817.4
+    },
+    {
+      "agent": "rtl_generator",
+      "step": "RTL generation, iteration 7",
+      "model": "gemini/gemini-3.1-flash-lite",
+      "prompt_tokens": 3114,
+      "completion_tokens": 578,
+      "total_tokens": 3692,
+      "cached": false,
+      "duration_s": 3.912,
+      "tps": 943.83,
+      "tpm": 56629.8
+    },
+    {
+      "agent": "rtl_generator",
+      "step": "RTL generation, iteration 8",
+      "model": "gemini/gemini-3.1-flash-lite",
+      "prompt_tokens": 3190,
+      "completion_tokens": 501,
+      "total_tokens": 3691,
+      "cached": false,
+      "duration_s": 2.756,
+      "tps": 1339.42,
+      "tpm": 80365.3
+    },
+    {
+      "agent": "rtl_generator",
+      "step": "RTL generation, iteration 9",
+      "model": "gemini/gemini-3.1-flash-lite",
+      "prompt_tokens": 3122,
+      "completion_tokens": 502,
+      "total_tokens": 3624,
+      "cached": false,
+      "duration_s": 6.237,
+      "tps": 581.04,
+      "tpm": 34862.3
+    },
+    {
+      "agent": "rtl_generator",
+      "step": "RTL generation, iteration 10",
+      "model": "gemini/gemini-3.1-flash-lite",
+      "prompt_tokens": 3061,
+      "completion_tokens": 600,
+      "total_tokens": 3661,
+      "cached": false,
+      "duration_s": 15.541,
+      "tps": 235.58,
+      "tpm": 14134.6
+    }
+  ]
+}

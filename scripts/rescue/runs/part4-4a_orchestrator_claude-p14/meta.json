@@ -1,0 +1,24 @@
+{
+  "id": "part4-4a_orchestrator_claude-p14",
+  "entry": {
+    "part": 4,
+    "run": "4a_orchestrator_claude",
+    "design": "p14.yaml"
+  },
+  "cwd": "part4/solution",
+  "command": [
+    "python3",
+    "asic_orchestrated_flow.py",
+    "--config",
+    "run_configs/4a_orchestrator_claude.yaml",
+    "--design",
+    "p14.yaml"
+  ],
+  "recorded": "2026-10-08T09:56:26",
+  "duration_s": 184.2,
+  "exit_code": 0,
+  "git_commit": "",
+  "score": 80.6884006341662,
+  "tokens_total": 47826,
+  "status": "success"
+}

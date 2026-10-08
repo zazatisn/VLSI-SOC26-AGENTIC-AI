@@ -1,0 +1,13 @@
+# Bugs injected into the golden RTL of p7 to measure how strong a testbench is.
+# Each mutant replaces the text 'find' of the golden RTL by 'replace'. A good testbench FAILS on every one.
+- name: exact e^x, not Taylor
+  find: 32'd384 * x2_r + x3
+  replace: 32'd384 * x2_r + x3 + (x3 >> 2)
+- name: ignores enable
+  find: end else if (enable) begin
+  replace: end else begin
+- name: one stage too many
+  find: exp_out <= q[47:32];
+  replace: exp_out <= exp_d; exp_d <= q[47:32];
+  also_find: reg [2*WIDTH-1:0] x2_r;
+  also_replace: "reg [2*WIDTH-1:0] x2_r;\n    reg [2*WIDTH-1:0] exp_d;"

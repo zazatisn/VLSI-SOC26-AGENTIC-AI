@@ -1,0 +1,228 @@
+{
+  "design": "p14.yaml",
+  "wall_time_s": 181.3,
+  "total": {
+    "prompt_tokens": 31564,
+    "completion_tokens": 16262,
+    "total_tokens": 47826,
+    "calls": 7,
+    "duration_s": 114.853,
+    "tps": 416.41,
+    "tpm": 24984.63
+  },
+  "per_agent": {
+    "orchestrator": {
+      "prompt_tokens": 5706,
+      "completion_tokens": 4166,
+      "total_tokens": 9872,
+      "calls": 1,
+      "duration_s": 29.23,
+      "tps": 337.74,
+      "tpm": 20264.11
+    },
+    "worker/tb_plan": {
+      "prompt_tokens": 2148,
+      "completion_tokens": 3124,
+      "total_tokens": 5272,
+      "calls": 1,
+      "duration_s": 15.441,
+      "tps": 341.43,
+      "tpm": 20485.72
+    },
+    "worker/tb_write": {
+      "prompt_tokens": 11985,
+      "completion_tokens": 5355,
+      "total_tokens": 17340,
+      "calls": 2,
+      "duration_s": 42.751,
+      "tps": 405.6,
+      "tpm": 24336.27
+    },
+    "worker/sdc_write": {
+      "prompt_tokens": 1915,
+      "completion_tokens": 461,
+      "total_tokens": 2376,
+      "calls": 1,
+      "duration_s": 3.58,
+      "tps": 663.69,
+      "tpm": 39821.23
+    },
+    "worker/rtl_write": {
+      "prompt_tokens": 6964,
+      "completion_tokens": 2497,
+      "total_tokens": 9461,
+      "calls": 1,
+      "duration_s": 17.357,
+      "tps": 545.08,
+      "tpm": 32704.96
+    },
+    "worker/config_write": {
+      "prompt_tokens": 2846,
+      "completion_tokens": 659,
+      "total_tokens": 3505,
+      "calls": 1,
+      "duration_s": 6.494,
+      "tps": 539.73,
+      "tpm": 32383.74
+    }
+  },
+  "per_role": {
+    "orchestrator (big model)": {
+      "prompt_tokens": 5706,
+      "completion_tokens": 4166,
+      "total_tokens": 9872,
+      "calls": 1,
+      "duration_s": 29.23,
+      "tps": 337.74,
+      "tpm": 20264.11
+    },
+    "workers (small model)": {
+      "prompt_tokens": 25858,
+      "completion_tokens": 12096,
+      "total_tokens": 37954,
+      "calls": 6,
+      "duration_s": 85.623,
+      "tps": 443.27,
+      "tpm": 26596.12
+    }
+  },
+  "calls": [
+    {
+      "agent": "orchestrator",
+      "step": "plan, attempt 1",
+      "model": "anthropic/claude-sonnet-5-5",
+      "prompt_tokens": 5706,
+      "completion_tokens": 4166,
+      "total_tokens": 9872,
+      "cached": false,
+      "duration_s": 29.23,
+      "tps": 337.73,
+      "tpm": 20263.9
+    },
+    {
+      "agent": "worker/tb_plan",
+      "step": "attempt 1 (Agent.md v1)",
+      "model": "anthropic/claude-haiku-4-5-20251001",
+      "prompt_tokens": 2148,
+      "completion_tokens": 3124,
+      "total_tokens": 5272,
+      "cached": false,
+      "duration_s": 15.441,
+      "tps": 341.42,
+      "tpm": 20485.3
+    },
+    {
+      "agent": "worker/tb_write",
+      "step": "attempt 1 (Agent.md v1)",
+      "model": "anthropic/claude-haiku-4-5-20251001",
+      "prompt_tokens": 4903,
+      "completion_tokens": 2762,
+      "total_tokens": 7665,
+      "cached": false,
+      "duration_s": 22.505,
+      "tps": 340.59,
+      "tpm": 20435.3
+    },
+    {
+      "agent": "worker/tb_write",
+      "step": "attempt 2 (Agent.md v1)",
+      "model": "anthropic/claude-haiku-4-5-20251001",
+      "prompt_tokens": 7082,
+      "completion_tokens": 2593,
+      "total_tokens": 9675,
+      "cached": false,
+      "duration_s": 20.246,
+      "tps": 477.86,
+      "tpm": 28671.9
+    },
+    {
+      "agent": "worker/sdc_write",
+      "step": "attempt 1 (Agent.md v1)",
+      "model": "anthropic/claude-haiku-4-5-20251001",
+      "prompt_tokens": 1915,
+      "completion_tokens": 461,
+      "total_tokens": 2376,
+      "cached": false,
+      "duration_s": 3.58,
+      "tps": 663.65,
+      "tpm": 39818.7
+    },
+    {
+      "agent": "worker/rtl_write",
+      "step": "attempt 1 (Agent.md v1)",
+      "model": "anthropic/claude-haiku-4-5-20251001",
+      "prompt_tokens": 6964,
+      "completion_tokens": 2497,
+      "total_tokens": 9461,
+      "cached": false,
+      "duration_s": 17.357,
+      "tps": 545.08,
+      "tpm": 32704.9
+    },
+    {
+      "agent": "worker/config_write",
+      "step": "attempt 1 (Agent.md v1)",
+      "model": "anthropic/claude-haiku-4-5-20251001",
+      "prompt_tokens": 2846,
+      "completion_tokens": 659,
+      "total_tokens": 3505,
+      "cached": false,
+      "duration_s": 6.494,
+      "tps": 539.69,
+      "tpm": 32381.7
+    }
+  ],
+  "flow": {
+    "status": "Success",
+    "best_score": 80.6884006341662,
+    "interventions": 0,
+    "replans": 0,
+    "subtasks": [
+      {
+        "id": "tb_plan",
+        "stage": "testbench",
+        "kind": "analysis",
+        "status": "passed",
+        "attempts": 1,
+        "interventions": 0,
+        "agent_md_versions": 1
+      },
+      {
+        "id": "tb_write",
+        "stage": "testbench",
+        "kind": "deliverable",
+        "status": "passed",
+        "attempts": 2,
+        "interventions": 0,
+        "agent_md_versions": 1
+      },
+      {
+        "id": "sdc_write",
+        "stage": "sdc",
+        "kind": "deliverable",
+        "status": "passed",
+        "attempts": 1,
+        "interventions": 0,
+        "agent_md_versions": 1
+      },
+      {
+        "id": "rtl_write",
+        "stage": "rtl",
+        "kind": "deliverable",
+        "status": "passed",
+        "attempts": 1,
+        "interventions": 0,
+        "agent_md_versions": 1
+      },
+      {
+        "id": "config_write",
+        "stage": "config_mk",
+        "kind": "deliverable",
+        "status": "passed",
+        "attempts": 1,
+        "interventions": 0,
+        "agent_md_versions": 1
+      }
+    ]
+  }
+}

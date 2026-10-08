@@ -1,0 +1,11 @@
+# Bugs injected into the golden RTL of p16 to measure how strong a testbench is.
+# Each mutant replaces the text 'find' of the golden RTL by 'replace'. A good testbench FAILS on every one.
+- name: write when full overwrites
+  find: wire do_wr = wr_en && !full;
+  replace: wire do_wr = wr_en;
+- name: first-word fall-through
+  find: dout   <= mem[rd_ptr[AW-1:0]];
+  replace: dout   <= mem[rd_ptr[AW-1:0] + 1'b1];
+- name: full one entry early
+  find: assign full  = (wr_ptr[AW] != rd_ptr[AW]) && (wr_ptr[AW-1:0] == rd_ptr[AW-1:0]);
+  replace: assign full  = ((wr_ptr - rd_ptr) >= DEPTH - 1);

@@ -1,0 +1,14 @@
+# Bugs injected into the golden RTL of p15 to measure how strong a testbench is.
+# Each mutant replaces the text 'find' of the golden RTL by 'replace'. A good testbench FAILS on every one.
+- name: MSB first
+  find: frame   <= {1'b1, data_in, 1'b0};
+  replace: frame   <= {1'b1, data_in[0], data_in[1], data_in[2], data_in[3], data_in[4], data_in[5], data_in[6], data_in[7], 1'b0};
+- name: restarts while busy
+  find: end else if (!busy) begin
+  replace: end else if (!busy || start) begin
+- name: bit one cycle short
+  find: end else if (cnt == CLKS_PER_BIT - 1) begin
+  replace: end else if (cnt == CLKS_PER_BIT - 2) begin
+- name: no stop bit
+  find: if (bit_idx == 4'd9) begin
+  replace: if (bit_idx == 4'd8) begin

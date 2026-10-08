@@ -1,0 +1,61 @@
+[
+  {
+    "id": "tb_plan",
+    "stage": "testbench",
+    "kind": "analysis",
+    "goal": "Write a precise test plan for the seq_detector_0011 testbench: clock/reset sequence, the two input vectors with expected outputs per index, and the check/drive order on falling edges.",
+    "uses": [],
+    "agent_md_versions": 1,
+    "status": "passed",
+    "attempts": 1,
+    "interventions": 0
+  },
+  {
+    "id": "tb_write",
+    "stage": "testbench",
+    "kind": "deliverable",
+    "goal": "Write the complete self-checking Verilog-2001 testbench for seq_detector_0011 following the test plan.",
+    "uses": [
+      "tb_plan"
+    ],
+    "agent_md_versions": 1,
+    "status": "passed",
+    "attempts": 3,
+    "interventions": 0
+  },
+  {
+    "id": "sdc_write",
+    "stage": "sdc",
+    "kind": "deliverable",
+    "goal": "Fill the sequential SDC template (Option A) for clock port clk, clock name clk, period 1.1 ns, changing nothing else.",
+    "uses": [],
+    "agent_md_versions": 1,
+    "status": "passed",
+    "attempts": 3,
+    "interventions": 0
+  },
+  {
+    "id": "rtl_write",
+    "stage": "rtl",
+    "kind": "deliverable",
+    "goal": "Write synthesizable Verilog-2001 for seq_detector_0011: a 5-state Moore FSM with synchronous active-high reset detecting overlapping 0011.",
+    "uses": [
+      "tb_plan"
+    ],
+    "agent_md_versions": 1,
+    "status": "failed",
+    "attempts": 12,
+    "interventions": 3
+  },
+  {
+    "id": "config_write",
+    "stage": "config_mk",
+    "kind": "deliverable",
+    "goal": "Fill every placeholder of the config.mk template for seq_detector_0011 (SkyWater 130HD, clock 1.1 ns, small FSM design).",
+    "uses": [],
+    "agent_md_versions": 1,
+    "status": "pending",
+    "attempts": 0,
+    "interventions": 0
+  }
+]

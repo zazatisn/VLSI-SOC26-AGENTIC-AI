@@ -23,6 +23,7 @@ Hands-on material for the VLSI-SoC 2026 tutorial on **agentic AI for Electronic 
 - [Part 2](#part-2)
 - [Part 3](#part-3)
 - [Part 4](#part-4)
+- [Before the tutorial (instructors)](#before-the-tutorial-instructors)
 
 ---
 
@@ -268,6 +269,10 @@ variable (`api_key: "$GEMINI_API_KEY"`), and one script sets these variables for
     │   │       └── config.yaml
     │   └── solution/          # reference solution
     ├── part3/                 # same layout as part2, run config 3
+    ├── reference/             # golden RTL/SDC/config.mk per design, sign-off and testbench grading
+    │   ├── check_designs.py   #   spec <-> golden RTL <-> reference TB, --rtl sign-off, --tb grading
+    │   └── make_reference.py  #   generates the PPA references (pN.json) for p11-p16
+    ├── rescue/                # record the tutorial runs in advance, replay them if a live run fails
     └── part4/
         ├── README.md          # full guide for Part 4
         ├── problem/           # what you work on
@@ -453,3 +458,27 @@ of the big and the small models. See [`scripts/part4/README.md`](scripts/part4/R
 - Are the generated worker prompts better or worse than the ones you wrote in Part 2?
 - Is a big model that only plans and corrects cheaper than a big model doing every step?
 - Does a better orchestrator prompt reduce the worker attempts and interventions?
+
+---
+
+## Before the tutorial (instructors)
+
+Run these once in the container, a few days before the session:
+
+1. **Check the designs**:
+   ```bash
+   cd /home/scripts/reference && python3 check_designs.py --mutants --synth --gls
+   ```
+   This checks every spec, golden RTL and reference testbench, and that each testbench catches
+   all of its planted bugs.
+2. **Generate the missing PPA references**:
+   ```bash
+   python3 make_reference.py --keep-layout
+   ```
+   This makes p11–p16 scored. Commit the new `evaluation/visible/pN/pN.json` files.
+3. **Record the rescue runs**:
+   ```bash
+   cd /home/scripts/rescue && python3 make_rescue.py --preset tutorial
+   ```
+   If a live run fails on the day, run `python3 show_rescue.py replay <run>`. See `scripts/rescue/README.md`.
+

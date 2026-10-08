@@ -877,7 +877,7 @@ def check_environment():
         print(f"{RD}❌ Error: Orchestrator Agent.md not found: '{ORCH_MD}'{R}"); ok = False
     elif not md_role(ORCH_SECTIONS) or not md_rules(ORCH_SECTIONS):
         print(f"{Y}⚠️  The orchestrator Agent.md has an empty '# Role and Objective' or '# Mandatory Rules'.{R}")
-    if not (EVALUATION_DIR / "visible" / Path(DESIGN).stem).exists():
+    if not (EVALUATION_DIR / "visible" / Path(DESIGN).stem / f"{Path(DESIGN).stem}.json").exists():
         print(f"{Y}⚠️  No reference results for {DESIGN} in {EVALUATION_DIR / 'visible'}: the layout cannot be scored.{R}")
     if not ok:
         print(f"\n{RD}{B}CRITICAL: Environment check failed.{R}"); sys.exit(1)

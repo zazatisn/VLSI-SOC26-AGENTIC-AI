@@ -1,0 +1,11 @@
+# Bugs injected into the golden RTL of p8 to measure how strong a testbench is.
+# Each mutant replaces the text 'find' of the golden RTL by 'replace'. A good testbench FAILS on every one.
+- name: truncation, no rounding
+  find: if (guard && (sticky || mant[0])) mant = mant + 11'd1;
+  replace: ''
+- name: round half up, not to even
+  find: if (guard && (sticky || mant[0]))
+  replace: if (guard)
+- name: no overflow to infinity
+  find: if (exp >= 8'sd31)     result = {sign, 5'b11111, 10'b0};
+  replace: if (1'b0) result = 0;

@@ -1,0 +1,11 @@
+# Bugs injected into the golden RTL of p1 to measure how strong a testbench is.
+# Each mutant replaces the text 'find' of the golden RTL by 'replace'. A good testbench FAILS on every one.
+- name: Mealy output
+  find: detected = (state == S4);
+  replace: detected = (state == S3) && data_in;
+- name: no overlap after detection
+  find: 'S4: next_state = data_in ? S0 : S1;'
+  replace: 'S4: next_state = S0;'
+- name: misses 000..011
+  find: 'S2: next_state = data_in ? S3 : S2;'
+  replace: 'S2: next_state = data_in ? S3 : S0;'

@@ -1,0 +1,44 @@
+[
+  {
+    "subtask": "tb_plan",
+    "attempt": 1,
+    "agent_md_version": 1,
+    "passed": true,
+    "report": "Notes written."
+  },
+  {
+    "subtask": "tb_write",
+    "attempt": 1,
+    "agent_md_version": 1,
+    "passed": false,
+    "report": "Testbench compilation errors/warnings (iverilog):\nruns/4a_orchestrator_claude/p14/subtasks/tb_write/attempt_1_tb.v:27: error: Task body with multiple statements requires SystemVerilog."
+  },
+  {
+    "subtask": "tb_write",
+    "attempt": 2,
+    "agent_md_version": 1,
+    "passed": true,
+    "report": "Testbench compiles with the DUT signature and prints PASS/FAIL."
+  },
+  {
+    "subtask": "sdc_write",
+    "attempt": 1,
+    "agent_md_version": 1,
+    "passed": true,
+    "report": "SDC matches the sequential template."
+  },
+  {
+    "subtask": "rtl_write",
+    "attempt": 1,
+    "agent_md_version": 1,
+    "passed": true,
+    "report": "RTL simulation passed and synthesis is clean."
+  },
+  {
+    "subtask": "config_write",
+    "attempt": 1,
+    "agent_md_version": 1,
+    "passed": true,
+    "report": "OpenROAD flow finished. Score 80.69/100. Worst negative slack: 0.0 ns."
+  }
+]
