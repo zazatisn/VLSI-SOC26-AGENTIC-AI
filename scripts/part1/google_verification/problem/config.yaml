@@ -4,6 +4,7 @@ active_profile: "gemini_lite"
 profiles:
   ollama-llama3.1:
     model: "ollama_chat/llama3.1"
+    engine: "litellm"
     api_base: "http://localhost:11434"
     api_key: ""
     temperature: 0.0
@@ -11,6 +12,7 @@ profiles:
 
   ollama-qwen2.5-coder:
     model: "ollama_chat/qwen2.5-coder:7b"
+    engine: "litellm"
     api_base: "http://localhost:11434"
     api_key: ""
     temperature: 0.0
