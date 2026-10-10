@@ -58,15 +58,18 @@ flow:
 
   # true : keep tuning config.mk after a successful physical flow until score >= score_threshold
   # false: stop at the first successful physical flow
-  iterative_optimization: true
-  score_threshold: 92.0
+  iterative_optimization: false
+  score_threshold: 92.0 # you can change that
 
   # true : regenerate the RTL when timing fails by far (WNS < -0.5 ns)
   # false: keep the RTL, only config.mk can recover timing
-  enable_resynthesis: true
-  max_resynthesis_attempts: 3
+  enable_resynthesis: false
+  max_resynthesis_attempts: 3 # you can change that as well
 
 # --- ITERATIONS -----------------------------------------------------------------
+
+# you can adjust the iterations to achieve better metrics
+
 iterations:
   max_tb_gen_iters: 10
   max_rtl_gen_iters: 10
