@@ -103,6 +103,10 @@ def tools_checks():
                 return "FAIL", "not found in PATH"
             rc, out = run(cmd, timeout=60, log=f"tool_{name}")
             line = last_line(out, pat) or out.strip().splitlines()[0] if out.strip() else ""
+            if name == "klayout":       # ORFS merges the final GDS with KLayout scripts that need >= 0.28
+                v = re.search(r"KLayout (\d+)\.(\d+)", out)
+                if v and (int(v.group(1)), int(v.group(2))) < (0, 28):
+                    return "FAIL", f"{line[:30]} is too old for OpenROAD-flow-scripts (GDS merge needs >= 0.28, tested 0.30)"
             return ("PASS" if re.search(pat, out) else "FAIL"), line[:70]
         check("tools", name, f)
 
@@ -207,6 +211,9 @@ def eda_checks(quick):
         state["res"] = res
         odb, gds = res / "6_final.odb", res / "6_final.gds"
         if rc or not odb.exists():
+            if "merged.gds" in out or "6_1_merge" in out:
+                return "FAIL", ("the final GDS merge (KLayout) failed - usually KLayout too old or broken. "
+                                f"See {o}/flow/logs/sky130hd/{module}/base/6_1_merge.log")
             return "FAIL", "flow failed: " + _tail(out)
         return "PASS", "6_final.odb" + (" + 6_final.gds (KLayout)" if gds.exists() else " (no GDS: check KLayout)")
     flow_ok = check("eda", "OpenROAD flow (p11, golden files)", flow)
