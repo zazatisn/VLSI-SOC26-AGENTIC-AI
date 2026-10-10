@@ -1,0 +1,7 @@
+date,design,module,repeat,cells,sim_s,sim_ok,orfs_s,orfs_steps_s,orfs_ok,metrics_s,total_s,orfs_stage_s
+,p11,,ref,72,,,,19.0,True,,,"{""synth"": 1.37, ""floorplan"": 1.86, ""place"": 5.2, ""cts"": 1.22, ""route"": 5.95, ""finish"": 3.37}"
+,p12,,ref,121,,,,38.8,True,,,"{""synth"": 1.4, ""floorplan"": 1.88, ""place"": 5.41, ""cts"": 1.23, ""route"": 25.83, ""finish"": 3.01}"
+,p13,,ref,206,,,,40.7,True,,,"{""synth"": 1.35, ""floorplan"": 1.85, ""place"": 5.78, ""cts"": 1.43, ""route"": 27.29, ""finish"": 3.02}"
+,p14,,ref,356,,,,41.3,True,,,"{""synth"": 1.59, ""floorplan"": 1.82, ""place"": 6.32, ""cts"": 1.26, ""route"": 27.22, ""finish"": 3.13}"
+,p15,,ref,156,,,,23.2,True,,,"{""synth"": 1.38, ""floorplan"": 1.83, ""place"": 5.4, ""cts"": 1.24, ""route"": 10.32, ""finish"": 3.06}"
+,p16,,ref,319,,,,37.8,True,,,"{""synth"": 1.41, ""floorplan"": 1.91, ""place"": 6.17, ""cts"": 1.38, ""route"": 23.69, ""finish"": 3.24}"

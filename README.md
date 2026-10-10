@@ -336,6 +336,7 @@ variable (`api_key: "$GEMINI_API_KEY"`), and one script sets these variables for
     │   └── make_reference.py  #   generates the PPA references (pN.json) for p11-p16
     ├── rescue/                # record the tutorial runs in advance, replay them if a live run fails
     ├── regression/            # environment check: tools, simulation, synthesis, OpenROAD, models
+    ├── profile/               # time, tokens and success rate per design and run (LLM vs EDA split)
     └── part4/
         ├── README.md          # full guide for Part 4
         ├── problem/           # what you work on
@@ -549,4 +550,12 @@ Run these once in the container, a few days before the session:
    cd /home/scripts/rescue && python3 make_rescue.py --preset tutorial
    ```
    If a live run fails on the day, run `python3 show_rescue.py replay <run>`. See `scripts/rescue/README.md`.
+4. **Profile the designs** (optional: how long each design and run takes, and where the time goes):
+   ```bash
+   cd /home/scripts/profile
+   python3 profile_designs.py eda -r 3                         # golden designs through the tools, no LLM
+   python3 profile_designs.py agent --runs 2b_multi_agent -d p11 -d p8 -r 3
+   python3 profile_designs.py report                           # -> results/profile_report.md
+   ```
+   See `scripts/profile/README.md`.
 

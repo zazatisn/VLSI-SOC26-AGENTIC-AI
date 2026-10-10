@@ -20,3 +20,9 @@ tests/
 scripts/reference/p*/build/
 # Logs of the environment regression
 scripts/regression/logs/
+
+# profiling: keep the CSV tables, not the run folders
+scripts/profile/results/runs/
+
+# files moved aside to delete by hand
+_to_delete/
