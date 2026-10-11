@@ -14,7 +14,10 @@ from utility_func import (
 
 # --- 1. CONFIGURATION & DSPY SETUP ---
 DEFAULT_DESIGN_SUBFOLDER = "enc_bin2onehot"
-DESIGN_SUBFOLDER = sys.argv[1] if len(sys.argv) > 1 and os.path.exists(sys.argv[1]) else DEFAULT_DESIGN_SUBFOLDER
+# --force: regenerate even if a golden.tb already exists for the design
+FORCE = "--force" in sys.argv[1:]
+CLI_ARGS = [a for a in sys.argv[1:] if a != "--force"]
+DESIGN_SUBFOLDER = CLI_ARGS[0] if CLI_ARGS and os.path.exists(CLI_ARGS[0]) else DEFAULT_DESIGN_SUBFOLDER
 
 lm = load_configured_lm("config.yaml")
 dspy.configure(lm=lm)
@@ -43,8 +46,8 @@ def main():
     
     # check if goldet.tb already exists #
     golden_saved_path = os.path.join(MUTANT_DIR, "golden.tb")
-    if os.path.exists(golden_saved_path):
-        print(f"INFO: Golden TB already exists, skipping regeneration ...")
+    if os.path.exists(golden_saved_path) and not FORCE:
+        print("INFO: Golden TB already exists, skipping regeneration (use --force to re-run) ...")
         exit()
 
     spec = get_file_content(os.path.join(MUTANT_DIR, "specification.md"))
