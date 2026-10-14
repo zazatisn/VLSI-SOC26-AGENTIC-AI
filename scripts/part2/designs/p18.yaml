@@ -1,0 +1,151 @@
+rv32i_core:
+  description: >
+    A single-cycle RISC-V core for the RV32I base integer instruction set: every rising clock edge
+    executes ONE instruction. Supported: LUI, AUIPC, JAL, JALR, BEQ, BNE, BLT, BGE, BLTU, BGEU,
+    LB, LH, LW, LBU, LHU, SB, SH, SW, ADDI, SLTI, SLTIU, XORI, ORI, ANDI, SLLI, SRLI, SRAI,
+    ADD, SUB, SLL, SLT, SLTU, XOR, SRL, SRA, OR, AND (RISC-V Unprivileged ISA, chapter RV32I).
+    Any other opcode (FENCE, ECALL, EBREAK, CSR, ...) is executed as a no-op (pc + 4, no write).
+    The instruction memory and the data memory are OUTSIDE the core; both are read combinationally in
+    the same cycle and the data memory is written at the rising edge. A registered retire port reports
+    every executed instruction (in the style of the RISC-V Formal Interface, RVFI).
+    Suggested structure: decoder + immediate generator, register file (x0 = 0), ALU, branch unit,
+    load/store unit (byte lanes), next-pc logic, retire registers.
+  tech_node: SkyWater 130HD
+  clock_period: 20.0ns
+  parameters:
+    RESET_PC: "32'h00000000"
+  ports:
+    - name: clk
+      direction: input
+      type: wire
+      description: Clock (rising edge). One instruction per rising edge.
+    - name: reset
+      direction: input
+      type: wire
+      description: Synchronous reset (active high). pc = RESET_PC, x1..x31 = 0, retire port cleared, no memory write.
+    - name: imem_addr
+      direction: output
+      type: "[31:0]"
+      description: Address of the instruction to execute = the pc register (byte address, multiple of 4).
+    - name: imem_rdata
+      direction: input
+      type: "[31:0]"
+      description: The instruction at imem_addr (combinational read, same cycle).
+    - name: dmem_addr
+      direction: output
+      type: "[31:0]"
+      description: Word address of the current load/store = effective address with bits [1:0] = 0 (0 when no load/store).
+    - name: dmem_re
+      direction: output
+      type: wire
+      description: 1 when the current instruction is a load (0 during reset).
+    - name: dmem_wstrb
+      direction: output
+      type: "[3:0]"
+      description: Byte write enables of the current store (bit i writes dmem_wdata[8i+7:8i] at the rising edge); 0 when no store and during reset.
+    - name: dmem_wdata
+      direction: output
+      type: "[31:0]"
+      description: Store data, replicated on the byte lanes (SB {4{rs2[7:0]}}, SH {2{rs2[15:0]}}, SW rs2); 0 when no store.
+    - name: dmem_rdata
+      direction: input
+      type: "[31:0]"
+      description: The word at dmem_addr (combinational read, same cycle).
+    - name: retire_valid
+      direction: output
+      type: reg
+      description: 1 after every edge that executed an instruction (0 after a reset edge).
+    - name: retire_pc
+      direction: output
+      type: reg [31:0]
+      description: pc of the instruction executed at the last edge.
+    - name: retire_insn
+      direction: output
+      type: reg [31:0]
+      description: That instruction.
+    - name: retire_rd
+      direction: output
+      type: reg [4:0]
+      description: Register written by it (0 when no register is written, also for rd = x0).
+    - name: retire_rd_wdata
+      direction: output
+      type: reg [31:0]
+      description: Value written to retire_rd (0 when retire_rd = 0).
+    - name: retire_mem_addr
+      direction: output
+      type: reg [31:0]
+      description: Full byte effective address of a load or store (0 otherwise).
+    - name: retire_mem_wstrb
+      direction: output
+      type: reg [3:0]
+      description: dmem_wstrb of a store (0 otherwise).
+    - name: retire_mem_wdata
+      direction: output
+      type: reg [31:0]
+      description: dmem_wdata of a store with the lanes NOT written set to 0 (0 otherwise).
+  module_signature: |
+    module rv32i_core #(
+        parameter RESET_PC = 32'h00000000
+    ) (
+        input             clk,
+        input             reset,
+        output     [31:0] imem_addr,
+        input      [31:0] imem_rdata,
+        output     [31:0] dmem_addr,
+        output            dmem_re,
+        output     [3:0]  dmem_wstrb,
+        output     [31:0] dmem_wdata,
+        input      [31:0] dmem_rdata,
+        output reg        retire_valid,
+        output reg [31:0] retire_pc,
+        output reg [31:0] retire_insn,
+        output reg [4:0]  retire_rd,
+        output reg [31:0] retire_rd_wdata,
+        output reg [31:0] retire_mem_addr,
+        output reg [3:0]  retire_mem_wstrb,
+        output reg [31:0] retire_mem_wdata
+    );
+  logic_rules:
+    - "x0 always reads 0; writes to x0 are ignored (retire_rd = 0, retire_rd_wdata = 0)."
+    - "Immediates are sign-extended (I, S, B, U, J formats of the ISA). Shift amounts are the low 5 bits; instr[30] selects SUB/SRA/SRAI."
+    - "SLT/SLTI compare signed, SLTU/SLTIU unsigned (SLTIU sign-extends the immediate, then compares unsigned)."
+    - "JAL/JALR write pc + 4; JALR jumps to (rs1 + imm) with bit 0 cleared. Branch and jump targets are pc-relative (pc of the branch)."
+    - "Loads: LB/LH sign-extend, LBU/LHU zero-extend; the byte/half is taken from dmem_rdata at byte offset ea[1:0]. Stores write only the lanes of dmem_wstrb (SB: lane ea[1:0]; SH: lanes 0-1 or 2-3)."
+    - "Misaligned loads/stores (LW/SW with ea[1:0] != 0, LH/SH with ea[0] = 1) and misaligned jump targets are never used (undefined)."
+    - "Unknown opcodes are no-ops: pc + 4, no register or memory write, retire_valid = 1."
+  sample_usage:
+    description: >
+      The program below, starting at pc 0 after one reset cycle. Cycle k = the inputs applied before rising
+      edge k; the outputs are read right after edge k. imem_rdata in cycle k is the instruction at the pc of
+      that cycle (the instruction memory answers combinationally); dmem_rdata is the memory word at
+      dmem_addr (only the LW cycle needs it: the word 2 stored by the SW). Data memory starts at 0.
+    program: |
+      0x00: 00500093  addi x1, x0, 5
+      0x04: ffd00113  addi x2, x0, -3
+      0x08: 002081b3  add  x3, x1, x2
+      0x0c: 00302823  sw   x3, 16(x0)
+      0x10: 01002203  lw   x4, 16(x0)
+      0x14: 00418463  beq  x3, x4, +8      (taken: skips 0x18)
+      0x18: 00100293  addi x5, x0, 1
+      0x1c: 12345337  lui  x6, 0x12345
+      0x20: 000003ef  jal  x7, 0           (jumps to itself forever)
+    expected:   # after edge k: imem_addr | retire_valid retire_pc retire_insn retire_rd retire_rd_wdata retire_mem_addr retire_mem_wstrb retire_mem_wdata
+      - "k = 0 (reset = 1): imem_addr 0x00 | 0 0 0 0 0 0 0 0"
+      - "k = 1 (insn 00500093): imem_addr 0x04 | 1 0x00 00500093 1 0x00000005 0 0 0"
+      - "k = 2 (insn ffd00113): imem_addr 0x08 | 1 0x04 ffd00113 2 0xfffffffd 0 0 0"
+      - "k = 3 (insn 002081b3): imem_addr 0x0c | 1 0x08 002081b3 3 0x00000002 0 0 0"
+      - "k = 4 (insn 00302823): imem_addr 0x10 | 1 0x0c 00302823 0 0 0x10 0xf 0x00000002"
+      - "k = 5 (insn 01002203, dmem_rdata = 0x00000002): imem_addr 0x14 | 1 0x10 01002203 4 0x00000002 0x10 0 0"
+      - "k = 6 (insn 00418463): imem_addr 0x1c | 1 0x14 00418463 0 0 0 0 0"
+      - "k = 7 (insn 12345337): imem_addr 0x20 | 1 0x1c 12345337 6 0x12345000 0 0 0"
+      - "k = 8, 9, 10 (insn 000003ef): imem_addr 0x20 | 1 0x20 000003ef 7 0x00000024 0 0 0"
+  timing: |
+    Single cycle: during cycle k the pc register addresses the instruction memory, the instruction is
+    decoded and executed combinationally (including the data memory read for a load); at rising edge k
+    the register file, the pc and the retire registers are updated and a store writes the data memory.
+    The retire outputs right after edge k describe the instruction executed at edge k; imem_addr then
+    shows the next pc. dmem_addr / dmem_re / dmem_wstrb / dmem_wdata are combinational outputs of the
+    CURRENT instruction (check them before the edge).
+    Race-free testbench: model the two memories in the testbench (combinational read, write at the rising
+    edge with dmem_wstrb), apply reset for one or more edges, and on every falling edge compare the retire
+    port with a reference model of the ISA.

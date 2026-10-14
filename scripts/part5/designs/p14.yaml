@@ -1,0 +1,70 @@
+alu_8bit:
+  description: >
+    An 8-bit ALU with a registered output. Every cycle it applies one of eight operations,
+    selected by op, to the unsigned operands a and b, and registers the 8-bit result together
+    with a zero flag and a carry flag.
+  tech_node: SkyWater 130HD
+  clock_period: 2.5ns
+  ports:
+    - name: clk
+      direction: input
+      type: wire
+      description: Clock input (rising edge)
+    - name: reset
+      direction: input
+      type: wire
+      description: Synchronous reset (active high) - clears result, zero and carry.
+    - name: a
+      direction: input
+      type: "[7:0]"
+      description: First operand (unsigned)
+    - name: b
+      direction: input
+      type: "[7:0]"
+      description: Second operand (unsigned)
+    - name: op
+      direction: input
+      type: "[2:0]"
+      description: Operation select (see operations)
+    - name: result
+      direction: output
+      type: reg [7:0]
+      description: Registered 8-bit result
+    - name: zero
+      direction: output
+      type: reg
+      description: Registered flag, 1 when the result is 0
+    - name: carry
+      direction: output
+      type: reg
+      description: Registered carry / borrow / shifted-out bit (see operations)
+  module_signature: |
+    module alu_8bit(
+        input            clk,
+        input            reset,
+        input      [7:0] a,
+        input      [7:0] b,
+        input      [2:0] op,
+        output reg [7:0] result,
+        output reg       zero,
+        output reg       carry
+    );
+  operations: |
+    op    name  result                              carry
+    000   ADD   (a + b) mod 256                     1 if a + b > 255 (carry out of bit 7)
+    001   SUB   (a - b) mod 256                     1 if a < b (borrow), unsigned compare
+    010   AND   a & b                               0
+    011   OR    a | b                               0
+    100   XOR   a ^ b                               0
+    101   SHL   (a << 1) mod 256                    a[7] (the bit shifted out)
+    110   SHR   a >> 1 (logical, MSB becomes 0)     a[0] (the bit shifted out)
+    111   SLT   1 if a < b (unsigned), else 0       0
+    zero = 1 exactly when the 8-bit result is 0 (for every operation).
+  sample_input:  "op=ADD a=200 b=100 -> op=SUB a=5 b=7 -> op=SLT a=3 b=9 -> op=SUB a=9 b=9"
+  sample_output: "result=44 zero=0 carry=1 -> result=254 zero=0 carry=1 -> result=1 zero=0 carry=0 -> result=0 zero=1 carry=0"
+  timing: |
+    result, zero and carry are registered: they are updated at each rising edge (latency 1).
+    sample_output[i] is the value of the outputs right after the rising edge that samples
+    sample_input[i]. During reset all three outputs are 0.
+    Race-free testbench: drive a, b and op on a falling edge, check the outputs on the next
+    falling edge.

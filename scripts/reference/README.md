@@ -1,6 +1,6 @@
 # Reference designs: golden RTL, sign-off and testbench grading
 
-For every design `pN` of Parts 2–4 this folder holds what a perfect agent would produce, plus
+For every design `pN` of Parts 2–5 this folder holds what a perfect agent would produce, plus
 the tools that check the designs, sign off an agent's RTL and grade an agent's testbench.
 
 ```
@@ -30,6 +30,8 @@ The specs are in `partN/designs/pN.yaml` and the reference (sign-off) testbenche
 | p14 | `alu_8bit` | 8-op ALU with zero/carry flags | 2.5 ns | new | `make_reference.py` |
 | p15 | `uart_tx` | UART transmitter 8N1 | 2.0 ns | new | `make_reference.py` |
 | p16 | `sync_fifo` | 8 × 8 synchronous FIFO | 2.0 ns | new | `make_reference.py` |
+| p17 | `vga_lcd` | VGA/LCD controller: timing + framebuffer + palette, 2 stages (hard, hierarchical) | 5.0 ns | new, behavioural model, 8 mutants | `make_reference.py` |
+| p18 | `rv32i_core` | single-cycle RV32I core with RVFI-style retire port (hard) | 20.0 ns | new, Verilog ISS + 10 programs, 10 mutants (`p18/tests/`) | `make_reference.py` |
 
 ## Check the designs
 
@@ -70,7 +72,7 @@ python3 check_designs.py -d p8 --tb ../part2/solution/runs/2b_multi_agent/result
 
 ## Generate the PPA references (once, in Docker)
 
-p11–p16 have no `pN.json` yet, so the flows accept their layouts without a score. Generate the references once:
+p11–p18 have no `pN.json` yet, so the flows accept their layouts without a score. Generate the references once:
 
 ```bash
 python3 make_reference.py --keep-layout     # every design without a pN.json; ~2-5 min per design
@@ -78,6 +80,6 @@ python3 make_reference.py --keep-layout     # every design without a pN.json; ~2
 
 It runs the golden files through ORFS exactly like the flows do. If the golden `config.mk` fails
 (small designs often hit PDN errors), it retries with safer floorplans and saves the one that worked.
-It then measures the layout with `evaluation/report_metrics.tcl` and writes `pN.json` to Parts 2, 3 and 4.
+It then measures the layout with `evaluation/report_metrics.tcl` and writes `pN.json` to Parts 2, 3, 4 and 5.
 The golden layout itself scores 75–80/100 (80 when the reference meets timing: a TNS of 0 earns the TNS bonus). `--keep-layout` also keeps the golden GDS in `pN/layout/`.
 That's a known-good result to show if a live run fails. Commit the new `pN.json` files.

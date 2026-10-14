@@ -34,7 +34,7 @@ import yaml
 
 HERE = Path(__file__).resolve().parent
 SCRIPTS = HERE.parent
-PARTS = ["part2", "part3", "part4"]
+PARTS = ["part2", "part3", "part4", "part5"]
 PLATFORM = "sky130hd"
 G, RD, Y, B, R = "\033[92m", "\033[91m", "\033[93m", "\033[1m", "\033[0m"
 

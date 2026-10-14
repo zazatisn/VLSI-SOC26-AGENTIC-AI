@@ -1,0 +1,26 @@
+# Bugs injected into the golden RTL of p17 to measure how strong a testbench is.
+# Each mutant replaces the text 'find' of the golden RTL by 'replace'. A good testbench FAILS on every one.
+- name: hsync one pixel late
+  find: "wire hs_now = (h_cnt >= H_ACTIVE + H_FP) && (h_cnt < H_ACTIVE + H_FP + H_SYNC);"
+  replace: "wire hs_now = (h_cnt > H_ACTIVE + H_FP) && (h_cnt <= H_ACTIVE + H_FP + H_SYNC);"
+- name: vsync active high
+  find: "vsync_n     <= ~s1_vs;"
+  replace: "vsync_n     <= s1_vs;"
+- name: framebuffer address x/y swapped
+  find: "wire [6:0] rd_addr = {v_cnt[2:0], h_cnt[3:0]};"
+  replace: "wire [6:0] rd_addr = {h_cnt[3:0], v_cnt[2:0]};"
+- name: rgb not blanked outside the active area
+  find: "rgb         <= s1_de ? pal[s1_idx] : 12'h000;"
+  replace: "rgb         <= pal[s1_idx];"
+- name: line counter skips the last line
+  find: "v_cnt <= (v_cnt == V_TOTAL - 1) ? 4'd0 : v_cnt + 1'b1;"
+  replace: "v_cnt <= (v_cnt == V_TOTAL - 2) ? 4'd0 : v_cnt + 1'b1;"
+- name: enable ignored
+  find: "if (enable) begin"
+  replace: "if (1'b1) begin"
+- name: palette not cleared by reset
+  find: "for (i = 0; i < 16; i = i + 1) pal[i] <= 0;"
+  replace: ";"
+- name: frame_start on the last pixel
+  find: "s1_fs  <= (h_cnt == 0) && (v_cnt == 0);"
+  replace: "s1_fs  <= (h_cnt == H_TOTAL - 1) && (v_cnt == V_TOTAL - 1);"

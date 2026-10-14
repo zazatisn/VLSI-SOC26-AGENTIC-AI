@@ -1,0 +1,60 @@
+uart_tx:
+  description: >
+    A UART transmitter (8N1: 8 data bits, no parity, 1 stop bit). When start is pulsed while
+    the transmitter is idle, it sends data_in on the serial line tx: a start bit (0), the
+    8 data bits LSB first, and a stop bit (1). Every bit lasts CLKS_PER_BIT clock cycles.
+  tech_node: SkyWater 130HD
+  clock_period: 2.0ns
+  parameters:
+    CLKS_PER_BIT: 8     # Clock cycles per serial bit (baud divider)
+  ports:
+    - name: clk
+      direction: input
+      type: wire
+      description: Clock input (rising edge)
+    - name: reset
+      direction: input
+      type: wire
+      description: Synchronous reset (active high) - aborts any frame, tx = 1, busy = 0.
+    - name: start
+      direction: input
+      type: wire
+      description: Request to send data_in. Sampled only when the transmitter is idle.
+    - name: data_in
+      direction: input
+      type: "[7:0]"
+      description: Byte to send, sampled at the same rising edge as start.
+    - name: tx
+      direction: output
+      type: reg
+      description: Serial output line. 1 when idle.
+    - name: busy
+      direction: output
+      type: reg
+      description: 1 while a frame is being sent.
+  module_signature: |
+    module uart_tx #(
+        parameter CLKS_PER_BIT = 8
+    ) (
+        input            clk,
+        input            reset,
+        input            start,
+        input      [7:0] data_in,
+        output reg       tx,
+        output reg       busy
+    );
+  logic_rules:
+    - Idle (busy = 0) the line is high (tx = 1).
+    - If start = 1 at a rising edge k while idle, data_in is captured, busy becomes 1 and the start bit (tx = 0) begins at edge k.
+    - Bit j of the frame (j = 0 start bit, j = 1..8 data_in[j-1], j = 9 stop bit = 1) begins at edge k + j*CLKS_PER_BIT and lasts CLKS_PER_BIT cycles.
+    - At edge k + 10*CLKS_PER_BIT the frame is over - busy = 0, tx = 1. A new start can be accepted from the next rising edge.
+    - start is ignored while busy = 1.
+  sample_input:  "start=1, data_in=8'h35 for one cycle, then start=0"
+  sample_output: "tx (one value per bit, CLKS_PER_BIT cycles each): 0 | 1 0 1 0 1 1 0 0 | 1, then idle 1"
+  timing: |
+    tx and busy are registers. With start sampled at rising edge k, tx = frame bit j from edge
+    k + j*CLKS_PER_BIT up to edge k + (j+1)*CLKS_PER_BIT, and busy = 1 from edge k up to edge
+    k + 10*CLKS_PER_BIT (exclusive). A frame takes exactly 10*CLKS_PER_BIT cycles.
+    Race-free testbench: raise start (and data_in) on a falling edge for one cycle, then sample
+    tx on the falling edge in the MIDDLE of each bit (CLKS_PER_BIT/2 cycles after the bit begins)
+    and check busy on every falling edge. 0x35 = 8'b00110101 is sent LSB first: 1,0,1,0,1,1,0,0.

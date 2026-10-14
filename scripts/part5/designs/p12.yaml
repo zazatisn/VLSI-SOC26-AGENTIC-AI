@@ -1,0 +1,46 @@
+registered_adder_8bit:
+  description: An 8-bit registered adder. It adds two 8-bit inputs and stores the result in an 8-bit register.
+  tech_node: SkyWater 130HD
+  clock_period: 1.5ns
+  ports:
+    - name: clk
+      direction: input
+      type: wire
+      description: Clock input
+    - name: reset
+      direction: input
+      type: wire
+      description: Synchronous reset (active high)
+    - name: a
+      direction: input
+      type: wire
+      width: "[7:0]"
+      description: First 8-bit operand
+    - name: b
+      direction: input
+      type: wire
+      width: "[7:0]"
+      description: Second 8-bit operand
+    - name: sum
+      direction: output
+      type: reg
+      width: "[7:0]"
+      description: 8-bit registered sum of a + b
+  module_signature: |
+    module registered_adder_8bit(
+        input clk,
+        input reset,
+        input [7:0] a,
+        input [7:0] b,
+        output reg [7:0] sum
+    );
+  logic_rules:
+    - On every posedge of clk, if reset is high, sum should be 0.
+    - Otherwise, sum should be updated with the value of (a + b).
+    - Note: This is an 8-bit adder; ignore the carry-out (overflow).
+  sample_input: "a=5, b=10 -> a=128, b=1"
+  sample_output: "sum=15 -> sum=129"
+  timing: |
+    sum is updated at each rising edge (latency 1): sample_output[i] is the value of sum right
+    after the rising edge that samples sample_input[i]. The sum is modulo 256 (200 + 100 -> 44).
+    Race-free testbench: drive a/b on a falling edge, check sum on the next falling edge.

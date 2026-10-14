@@ -27,7 +27,8 @@ Three measurements, run them inside the Docker container (or a local install) fr
                                                          # (rescue recordings, runs/ folders)
 
 Run configs: 2a_single_agent 2b_multi_agent 2c_multi_agent_mixed_models 2d_multi_agent_mixed_models_validators
-(Part 2), 3_multi_agent_collaboration (Part 3), 4a_orchestrator_claude 4b_orchestrator_gemini (Part 4).
+(Part 2), 3_multi_agent_collaboration (Part 3), 4a_orchestrator_claude 4b_orchestrator_gemini (Part 4),
+5a_rtl_planner 5b_rtl_planner_integrator (Part 5).
 Do not run two runs of the SAME design at the same time: they share the ORFS design folder.
 """
 import argparse
@@ -74,8 +75,8 @@ def norm_design(d):
 
 
 def part_of(run):
-    if not run[:1].isdigit() or run[0] not in "234":
-        sys.exit(f"{RD}unknown run config {run}: it must start with 2, 3 or 4{R}")
+    if not run[:1].isdigit() or run[0] not in "2345":
+        sys.exit(f"{RD}unknown run config {run}: it must start with 2, 3, 4 or 5{R}")
     return int(run[0])
 
 
@@ -297,7 +298,7 @@ def record_quiet(cmd, cwd, out_dir, quiet):
 
 
 # defaults (seconds per run) used before you have measurements; from the runs in the repo, Oct 2026
-DEFAULT_S = {2: 120, 3: 300, 4: 240}
+DEFAULT_S = {2: 120, 3: 300, 4: 240, 5: 360}
 HARD = {"p8": 2.5, "p9": 1.8, "p7": 1.6, "p5": 1.5}
 
 

@@ -1,0 +1,143 @@
+vga_lcd:
+  description: >
+    A small VGA/LCD display controller (a scaled-down version of the classic OpenCores vga_lcd).
+    It generates the video timing (horizontal and vertical counters, sync pulses, data enable) for a
+    16 x 8 pixel screen, reads a 4-bit colour index per pixel from an internal framebuffer, converts it
+    to a 12-bit RGB colour through an internal 16-entry palette, and outputs the pixels with two register
+    stages. A host writes the framebuffer and the palette through two simple write ports.
+    Suggested structure: timing generator, framebuffer memory, palette memory, pixel pipeline.
+  tech_node: SkyWater 130HD
+  clock_period: 5.0ns
+  parameters:
+    H_ACTIVE: 16     # visible pixels per line
+    H_FP: 2          # horizontal front porch (pixels)
+    H_SYNC: 3        # horizontal sync pulse (pixels)
+    H_BP: 3          # horizontal back porch (pixels)   -> 24 pixels per line
+    V_ACTIVE: 8      # visible lines
+    V_FP: 1          # vertical front porch (lines)
+    V_SYNC: 2        # vertical sync pulse (lines)
+    V_BP: 2          # vertical back porch (lines)      -> 13 lines per frame, 312 pixels per frame
+  ports:
+    - name: clk
+      direction: input
+      type: wire
+      description: Pixel clock (rising edge). One pixel position per clock while enable = 1.
+    - name: reset
+      direction: input
+      type: wire
+      description: Synchronous reset (active high). Counters to position (0, 0), framebuffer and palette cleared to 0, outputs inactive. Writes are ignored during reset.
+    - name: enable
+      direction: input
+      type: wire
+      description: 1 = the timing runs (one position per clock). 0 = the counters hold their position and the outputs become inactive.
+    - name: fb_we
+      direction: input
+      type: wire
+      description: Framebuffer write enable (written at the rising edge).
+    - name: fb_addr
+      direction: input
+      type: "[6:0]"
+      description: Framebuffer address = y * 16 + x (pixel x = 0..15 on line y = 0..7).
+    - name: fb_wdata
+      direction: input
+      type: "[3:0]"
+      description: Colour index written to the framebuffer.
+    - name: pal_we
+      direction: input
+      type: wire
+      description: Palette write enable (written at the rising edge).
+    - name: pal_addr
+      direction: input
+      type: "[3:0]"
+      description: Palette entry (colour index 0..15).
+    - name: pal_wdata
+      direction: input
+      type: "[11:0]"
+      description: Palette colour, 12-bit RGB = {R[3:0], G[3:0], B[3:0]}.
+    - name: hsync_n
+      direction: output
+      type: reg
+      description: Horizontal sync, active LOW. Registered.
+    - name: vsync_n
+      direction: output
+      type: reg
+      description: Vertical sync, active LOW. Registered.
+    - name: de
+      direction: output
+      type: reg
+      description: Data enable, 1 for a visible pixel. Registered.
+    - name: rgb
+      direction: output
+      type: reg [11:0]
+      description: Pixel colour = palette[framebuffer[pixel]] for a visible pixel, 0 otherwise. Registered.
+    - name: frame_start
+      direction: output
+      type: reg
+      description: 1 for the pixel at position (0, 0) of every frame. Registered.
+  module_signature: |
+    module vga_lcd #(
+        parameter H_ACTIVE = 16,
+        parameter H_FP     = 2,
+        parameter H_SYNC   = 3,
+        parameter H_BP     = 3,
+        parameter V_ACTIVE = 8,
+        parameter V_FP     = 1,
+        parameter V_SYNC   = 2,
+        parameter V_BP     = 2
+    ) (
+        input             clk,
+        input             reset,
+        input             enable,
+        input             fb_we,
+        input      [6:0]  fb_addr,
+        input      [3:0]  fb_wdata,
+        input             pal_we,
+        input      [3:0]  pal_addr,
+        input      [11:0] pal_wdata,
+        output reg        hsync_n,
+        output reg        vsync_n,
+        output reg        de,
+        output reg [11:0] rgb,
+        output reg        frame_start
+    );
+  logic_rules:
+    - "Position (h, v): h = 0..23 (pixel in the line), v = 0..12 (line in the frame). After reset the position is (0, 0)."
+    - "At every rising edge with enable = 1 the controller SAMPLES the current position, then moves to the next one: h + 1, and after h = 23 to (0, v + 1); after (23, 12) to (0, 0). With enable = 0 the position does not change."
+    - "Visible pixel: h < 16 and v < 8. Horizontal sync (hsync_n = 0): 18 <= h <= 20. Vertical sync (vsync_n = 0): 9 <= v <= 10 (for every pixel of those lines)."
+    - "The outputs right after rising edge k describe the position sampled at edge k-1 (two register stages: sample, then output). If edge k-1 had enable = 0 or reset = 1, the outputs after edge k are INACTIVE: hsync_n = 1, vsync_n = 1, de = 0, rgb = 0, frame_start = 0."
+    - "For a visible pixel, rgb = palette[framebuffer[v * 16 + h]]. The framebuffer is read at the edge that samples the position, the palette at the following edge. A write at an edge is seen only by reads at LATER edges."
+    - "During reset all outputs are inactive; framebuffer and palette entries are 0."
+  sample_usage:
+    description: >
+      Program two palette colours and four pixels with the timing stopped (enable = 0), then start the
+      timing and watch the first lines. Cycle k = the inputs applied before rising edge k; the outputs are
+      read right after edge k. Inputs not listed are 0 (fb_we = pal_we = 0).
+    inputs:
+      - "cycle 0: reset = 1"
+      - "cycle 1: pal_we = 1, pal_addr = 1, pal_wdata = 12'hF00   (red)"
+      - "cycle 2: pal_we = 1, pal_addr = 2, pal_wdata = 12'h0F0   (green)"
+      - "cycle 3: fb_we = 1, fb_addr = 0,  fb_wdata = 1   (pixel (0, 0) red)"
+      - "cycle 4: fb_we = 1, fb_addr = 1,  fb_wdata = 2   (pixel (1, 0) green)"
+      - "cycle 5: fb_we = 1, fb_addr = 15, fb_wdata = 1   (pixel (15, 0) red)"
+      - "cycle 6: fb_we = 1, fb_addr = 16, fb_wdata = 2   (pixel (0, 1) green)"
+      - "cycle 7 and every later cycle: enable = 1 (edge 7 samples position (0, 0))"
+    expected_outputs:   # (hsync_n, vsync_n, de, rgb, frame_start) right after edge k
+      - "k = 0 .. 7  : (1, 1, 0, 12'h000, 0)   inactive"
+      - "k = 8       : (1, 1, 1, 12'hF00, 1)   position (0, 0)"
+      - "k = 9       : (1, 1, 1, 12'h0F0, 0)   position (1, 0)"
+      - "k = 10 .. 22: (1, 1, 1, 12'h000, 0)   positions (2, 0) .. (14, 0): palette[0] = 0"
+      - "k = 23      : (1, 1, 1, 12'hF00, 0)   position (15, 0)"
+      - "k = 24 .. 25: (1, 1, 0, 12'h000, 0)   front porch (16, 0), (17, 0)"
+      - "k = 26 .. 28: (0, 1, 0, 12'h000, 0)   horizontal sync (18, 0) .. (20, 0)"
+      - "k = 29 .. 31: (1, 1, 0, 12'h000, 0)   back porch (21, 0) .. (23, 0)"
+      - "k = 32      : (1, 1, 1, 12'h0F0, 0)   position (0, 1)"
+      - "k = 224 .. 271: vsync_n = 0 (lines 9 and 10: k = 8 + 24 * v + h), hsync_n as in every line, de = 0, rgb = 0"
+      - "k = 320     : (1, 1, 1, 12'hF00, 1)   position (0, 0) of the second frame"
+  timing: |
+    Two register stages. The edge that samples position (h, v) also reads the framebuffer; the next
+    edge reads the palette and updates all outputs together. So the outputs after edge k describe the
+    position sampled at edge k-1. The first edge with enable = 1 after reset samples (0, 0); its pixel
+    appears after the next edge.
+    Race-free testbench: drive the inputs on a falling edge and check the outputs on the next falling
+    edge (right after one rising edge). Keep a model of the counters, framebuffer and palette in the
+    testbench to predict the outputs.

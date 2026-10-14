@@ -1,0 +1,40 @@
+seq_detector_0011:
+  description: Detects a binary sequence "0011" in the input stream.
+  tech_node: SkyWater 130HD
+  clock_period: 1.1ns
+  ports:
+    - name: clk
+      direction: input
+      type: wire
+      description: Clock input
+    - name: reset
+      direction: input
+      type: wire
+      description: Synchronous reset (active high)
+    - name: data_in
+      direction: input
+      type: wire
+      description: Serial data input
+    - name: detected
+      direction: output
+      type: reg
+      description: Asserted high for one cycle when '0011' is detected.
+  module_signature: |
+    module seq_detector_0011(
+        input clk,
+        input reset,
+        input data_in,
+        output reg detected
+    );
+  sequence_to_detect: '0011'
+  sample_input:  '0001100110110010'
+  sample_output: '0000010001000000'
+  timing: |
+    detected is a Moore output: it depends only on the FSM state, never directly on data_in.
+    It is high during the ONE clock cycle that follows the rising edge which samples the last '1'
+    of "0011". Overlapping sequences are detected (e.g. "0011" after "0011" -> detected twice).
+    How sample_input / sample_output line up: sample_output[i] is the value of detected while
+    sample_input[i] is applied (it reflects only the bits sampled BEFORE sample_input[i]).
+    Race-free testbench: hold reset high for 2 rising edges, release it on a falling edge, then
+    on EVERY falling edge i: first check detected == sample_output[i], then drive
+    data_in = sample_input[i]. Never check exactly at a rising edge or a few ps after it.

@@ -47,7 +47,7 @@ PART1 = {
     "google_single":    ("part1/google_verification", ["python3", "single_pass.py"]),
     "google_iterative": ("part1/google_verification", ["python3", "iterative.py"]),
 }
-FLOW = {2: "asic_autonomous_flow.py", 3: "asic_autonomous_flow.py", 4: "asic_orchestrated_flow.py"}
+FLOW = {2: "asic_autonomous_flow.py", 3: "asic_autonomous_flow.py", 4: "asic_orchestrated_flow.py", 5: "asic_autonomous_flow.py"}
 
 
 def die(msg):
@@ -85,7 +85,7 @@ def plan(e):
     paths = cfg.get("paths", {})
     stem = Path(design).stem
     cmd = ["python3", FLOW[part], "--config", f"run_configs/{run}.yaml", "--design", design] + e.get("extra_args", [])
-    if part in (2, 3):
+    if part in (2, 3, 5):
         log = cwd / paths["log_file"]
         res = cwd / paths["results_dir"] / stem
         sol = cwd / paths["solutions_dir"] / stem
