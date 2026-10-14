@@ -39,6 +39,8 @@ Hands-on material for the VLSI-SoC 2026 tutorial on **agentic AI for Electronic 
     - [Task 3: Feedback loops](#task-3-feedback-loops)
   - [Part 4](#part-4)
     - [Task 4: Orchestrator](#task-4-orchestrator)
+  - [Part 5](#part-5)
+    - [Task 5: RTL planner and module generators](#task-5-rtl-planner-and-module-generators)
 - [Before the tutorial (instructors)](#before-the-tutorial-instructors)
 
 ---
@@ -410,6 +412,10 @@ Every check prints PASS / FAIL / SKIP. If anything fails, see `scripts/regressio
     ├── rescue/                # record the tutorial runs in advance, replay them if a live run fails
     ├── regression/            # environment check: tools, simulation, synthesis, OpenROAD, models
     ├── profile/               # time, tokens and success rate per design and run (LLM vs EDA split)
+    ├── part5/                 # same layout as part3: RTL planner + module generators, examples-only testbench
+    │   ├── README.md          # full guide for Part 5
+    │   ├── problem/           # asic_autonomous_flow.py, rtl_planner_tools.py, reference_model_tools.py, run_configs 5a/5b, configs/
+    │   └── solution/
     └── part4/
         ├── README.md          # full guide for Part 4
         ├── problem/           # what you work on
@@ -725,6 +731,35 @@ when they fail.
 - Are the generated worker prompts better or worse than the ones you wrote in Part 2?
 - Is a big model that only plans and corrects cheaper than a big model doing every step?
 - Does a better orchestrator prompt reduce the worker attempts and interventions?
+
+## Part 5
+
+Part 5 is Part 3 with two changes. First, the RTL is no longer written by one agent: an **RTL planner**
+splits the design into modules (a contract for each, plus the top module that wires them), **module
+generators** write one module each, and every module is checked alone before the integrated design goes
+through the Part 3 flow. An **RTL integrator** that decides who fixes a failing integration is optional and
+off by default, like the validators. Second, the **testbench contains only the examples of the YAML spec**:
+the TB agent converts them into test vectors and a template writes the Verilog. Models are bad at inventing
+test cases and their expected values. More tests are an option: a Python black-box model of the design can
+compute the expected values of extra tests, after it has reproduced the spec's examples.
+
+```bash
+cd /home/scripts/part5/problem
+python3 asic_autonomous_flow.py --config run_configs/5a_rtl_planner.yaml              # integrator off
+python3 asic_autonomous_flow.py --config run_configs/5b_rtl_planner_integrator.yaml   # integrator on
+```
+
+### Task 5: RTL planner and module generators
+
+**Where you change things:** `problem/configs/{tb_generator,rtl_planner,module_generator}/Agent.md` (and
+`rtl_integrator`, `reference_model` as bonus).
+
+1. Run p8 with 5a. Read the plan (`rtl_gen_flow/plan.txt`) and the modules (`rtl_gen_flow/modules/`).
+2. Write the planner rules: when to split, how to write a contract, the latency budget.
+3. Write what a module generator does when the whole design fails but its own module may be correct.
+4. Run again with 5b (integrator on) and compare the module rewrites and the token cost with Part 3.
+
+See [`scripts/part5/README.md`](scripts/part5/README.md).
 
 ---
 

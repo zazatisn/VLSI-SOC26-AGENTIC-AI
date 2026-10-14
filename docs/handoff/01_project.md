@@ -96,3 +96,12 @@ golden references for all designs, check_designs / make_reference, rescue record
 profiling script, Claude Haiku/Sonnet/Opus profiles in all configs, tutorial deck v3_3 (81 slides).
 Open: the paper experiments (private repo), profiling all designs inside Docker
 (`profile_designs.py eda` / `agent`), optional warning for mild negative slack in `evaluate_openroad.py`.
+
+## Part 5 (scripts/part5, Oct 2026)
+
+Part 3 flow + `flow.rtl_mode: planner` (rtl_planner -> module_generator, optional rtl_integrator, off by
+default) + `flow.tb_mode: examples` (the testbench contains ONLY the spec's examples: the tb_generator agent
+writes SPEC_EXAMPLES as Python, `pack()` for vectors, a template writes the Verilog; optional
+`agents.reference_model.enabled` adds extra tests from a Python black-box model that must first reproduce
+the spec's examples). No rollback / arbitration / tool-error stop: the flow is otherwise identical to Part 3.
+See scripts/part5/README.md.
